@@ -31,7 +31,7 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          python -m coverage run --source=webui -m unittest discover -s tests
+          python -m coverage run --source=. -m unittest discover -s tests
           python -m coverage xml -o coverage.xml
 
       - name: Run SonarQube scan
@@ -41,9 +41,9 @@ jobs:
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
         with:
           args: >
-            -Dsonar.sources=webui.py
+            -Dsonar.sources=.
             -Dsonar.tests=tests
             -Dsonar.test.inclusions=tests/**/*.py
             -Dsonar.python.coverage.reportPaths=coverage.xml
             -Dsonar.python.version=3.11
-            -Dsonar.exclusions=**/__pycache__/**,data/**,docs/**
+            -Dsonar.exclusions=**/__pycache__/**,**/*.pyc,venv/**,.venv/**,data/**,coverage.xml
