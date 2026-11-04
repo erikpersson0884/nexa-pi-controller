@@ -3,15 +3,30 @@
 import threading
 import time
 
-import lgpio
+try:
+    import lgpio
+except ImportError:
+    lgpio = None
 
-from config import CHIP, PIN, REPEAT, T, TX_ID
+from config import CHIP, GPIO_MODE, PIN, REPEAT, T, TX_ID
 
 tx_lock = threading.Lock()
 
 
 def transmit(on, unit, group=0):
     """Send one Nexa command. Opens and closes the GPIO each time."""
+    if GPIO_MODE == "mock":
+        print(
+            f"Mock radio: {'on' if on else 'off'} unit {unit} group {group}",
+            flush=True,
+        )
+        return
+    if GPIO_MODE != "hardware":
+        raise RuntimeError("GPIO_MODE must be 'hardware' or 'mock'")
+    if lgpio is None:
+        raise RuntimeError(
+            "lgpio is not installed; set GPIO_MODE=mock for development"
+        )
     with tx_lock:
         handle = lgpio.gpiochip_open(CHIP)
         try:

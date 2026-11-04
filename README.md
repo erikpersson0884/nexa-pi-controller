@@ -111,6 +111,7 @@ Using a `.env` file is optional. Create one in the project directory to override
 | `PORT` | `8080` | Port the web UI listens on |
 | `HOST` | `127.0.0.1` | Network interface to bind to. Use `0.0.0.0` only when the app must be reachable from other devices |
 | `DATA_DIR` | project `data/` folder (`/data` in Docker) | Where `nexa_state.json`, `nexa_devices.json` and `nexa_timers.json` are stored |
+| `GPIO_MODE` | `hardware` | Set to `mock` on a development computer without GPIO hardware. Pairing and switching are simulated |
 | `TZ` | system time zone | Time zone used by schedules (set it in Docker) |
 | `SECRET_KEY` | generated at startup | Secret used to protect web requests against CSRF. Set a stable random value in production |
 

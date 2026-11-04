@@ -1,8 +1,13 @@
 """Persistence for configured devices, outlet state, and timers."""
 
 import json
+import os
 
 from config import DEVICES_FILE, STATE_FILE, TIMER_FILE
+
+
+def _ensure_data_dir():
+    os.makedirs(os.path.dirname(DEVICES_FILE), exist_ok=True)
 
 
 def load_devices():
@@ -24,6 +29,7 @@ def load_devices():
 
 
 def save_devices(devices):
+    _ensure_data_dir()
     with open(DEVICES_FILE, "w") as f:
         json.dump(devices, f, indent=2)
 
@@ -38,6 +44,7 @@ def load_state():
 
 def save_state(state):
     try:
+        _ensure_data_dir()
         with open(STATE_FILE, "w") as f:
             json.dump(state, f)
     except Exception:
@@ -58,6 +65,7 @@ def load_timers():
 
 def save_timers(timers):
     try:
+        _ensure_data_dir()
         with open(TIMER_FILE, "w") as f:
             json.dump(timers, f)
     except Exception:

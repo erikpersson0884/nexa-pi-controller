@@ -11,6 +11,7 @@ PIN = 17
 TX_ID = 12345678
 T = 260e-6
 REPEAT = 6
+GPIO_MODE = os.getenv("GPIO_MODE", "hardware").lower()
 PORT = int(os.getenv("PORT", 8080))
 HOST = os.getenv("HOST", "127.0.0.1")
 

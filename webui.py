@@ -25,6 +25,7 @@ PIN = config.PIN
 TX_ID = config.TX_ID
 T = config.T
 REPEAT = config.REPEAT
+GPIO_MODE = config.GPIO_MODE
 PROJECT_DIR = config.PROJECT_DIR
 DATA_DIR = config.DATA_DIR
 STATE_FILE = config.STATE_FILE
