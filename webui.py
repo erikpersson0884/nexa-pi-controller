@@ -2,42 +2,36 @@
 # Web UI with outlet pairing and timers for Nexa outlets on a Raspberry Pi 5
 # Run: python3 webui.py   then open http://<pi-ip>:8080
 
-import json
-import os
 import re
+import os
 import secrets
 import threading
 import time
 import uuid
-from datetime import datetime
 
-import lgpio
-from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template, request
 from flask_wtf.csrf import CSRFProtect
 
-load_dotenv()
+import config
+import radio
+import scheduler as scheduler_module
+import storage
 
+# Re-export configuration and legacy helpers for callers importing webui.
+PORT = config.PORT
+HOST = config.HOST
+CHIP = config.CHIP
+PIN = config.PIN
+TX_ID = config.TX_ID
+T = config.T
+REPEAT = config.REPEAT
+PROJECT_DIR = config.PROJECT_DIR
+DATA_DIR = config.DATA_DIR
+STATE_FILE = config.STATE_FILE
+DEVICES_FILE = config.DEVICES_FILE
+TIMER_FILE = config.TIMER_FILE
 
-# ---------- Settings ----------
-CHIP = 15            # pinctrl-rp1 (from gpiodetect)
-PIN = 17             # BCM GPIO17 = physical pin 11
-TX_ID = 12345678     # must match the ID your outlets were paired with
-T = 260e-6
-REPEAT = 6
-PORT = int(os.getenv("PORT", 8080))
-HOST = os.getenv("HOST", "127.0.0.1")
-
-# ------------------------------
-
-# In Docker, set DATA_DIR=/data and mount a volume there.
-PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.getenv("DATA_DIR", os.path.join(PROJECT_DIR, "data"))
-STATE_FILE = os.path.join(DATA_DIR, "nexa_state.json")
-DEVICES_FILE = os.path.join(DATA_DIR, "nexa_devices.json")
-TIMER_FILE = os.path.join(DATA_DIR, "nexa_timers.json")
-
-tx_lock = threading.Lock()      # only one radio transmission at a time
+tx_lock = radio.tx_lock
 timer_lock = threading.Lock()   # protects the timers dict
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", secrets.token_hex(32))
@@ -45,153 +39,37 @@ csrf = CSRFProtect()
 csrf.init_app(app)
 
 
-# ---------- Devices ----------
-def load_devices():
-    try:
-        with open(DEVICES_FILE) as f:
-            devices = json.load(f)
-        if not isinstance(devices, list):
-            raise ValueError("device configuration must be a list")
-        return [
-            {"unit": int(d["unit"]), "name": str(d["name"])}
-            for d in devices
-            if 0 <= int(d["unit"]) <= 15 and str(d["name"]).strip()
-        ]
-    except FileNotFoundError:
-        return []
-    except Exception as e:
-        print("Could not read devices file, using no devices:", e, flush=True)
-        return []
+# ---------- Legacy-compatible storage/radio wrappers ----------
+load_devices = storage.load_devices
+load_state = storage.load_state
+load_timers = storage.load_timers
+save_devices = storage.save_devices
 
-
-def save_devices(devices):
-    with open(DEVICES_FILE, "w") as f:
-        json.dump(devices, f, indent=2)
-
-
-# ---------- State (last command sent per outlet) ----------
-def load_state():
-    try:
-        with open(STATE_FILE) as f:
-            return {int(k): v for k, v in json.load(f).items()}
-    except Exception:
-        return {}
-
+configured_devices = storage.load_devices()
+state = storage.load_state()
+timers = storage.load_timers()
+last_fired = {}   # schedule id -> "YYYY-MM-DD HH:MM" (prevents double firing)
 
 def save_state(st):
-    try:
-        with open(STATE_FILE, "w") as f:
-            json.dump(st, f)
-    except Exception:
-        pass
-
-
-# ---------- Timers ----------
-def load_timers():
-    try:
-        with open(TIMER_FILE) as f:
-            data = json.load(f)
-        return {
-            "schedules": data.get("schedules", []),
-            "countdowns": data.get("countdowns", []),
-        }
-    except Exception:
-        return {"schedules": [], "countdowns": []}
+    storage.save_state(st)
 
 
 def save_timers():
-    # Call while holding timer_lock
-    try:
-        with open(TIMER_FILE, "w") as f:
-            json.dump(timers, f)
-    except Exception:
-        pass
+    storage.save_timers(timers)
 
 
-configured_devices = load_devices()
-state = load_state()
-timers = load_timers()
-last_fired = {}   # schedule id -> "YYYY-MM-DD HH:MM" (prevents double firing)
-
-
-# ---------- Radio ----------
 def transmit(on, unit, group=0):
-    """Send one Nexa command. Opens and closes the GPIO each time."""
-    with tx_lock:
-        h = lgpio.gpiochip_open(CHIP)
-        try:
-            lgpio.gpio_claim_output(h, PIN, 0)
-
-            def pulse(level, duration):
-                lgpio.gpio_write(h, PIN, level)
-                end = time.perf_counter() + duration
-                while time.perf_counter() < end:
-                    pass
-
-            def send_bit(bit):
-                seq = ([(1, T), (0, 5 * T), (1, T), (0, T)] if bit
-                       else [(1, T), (0, T), (1, T), (0, 5 * T)])
-                for level, duration in seq:
-                    pulse(level, duration)
-
-            bits = (format(TX_ID, "026b") + str(group)
-                    + ("1" if on else "0") + format(unit, "04b"))
-            for _ in range(REPEAT):
-                pulse(1, T)
-                pulse(0, 10 * T)
-                for c in bits:
-                    send_bit(c == "1")
-                pulse(1, T)
-                pulse(0, 40 * T)
-        finally:
-            lgpio.gpio_write(h, PIN, 0)
-            lgpio.gpiochip_close(h)
+    return radio.transmit(on, unit, group)
 
 
 def apply(unit, on):
-    transmit(on, unit)
-    state[unit] = on
-    save_state(state)
+    return radio.apply(unit, on, state, save_state, transmit)
 
 
-# ---------- Scheduler thread ----------
 def scheduler():
-    while True:
-        try:
-            now = datetime.now()
-            hhmm = now.strftime("%H:%M")
-            stamp = now.strftime("%Y-%m-%d %H:%M")
-            due = []
-
-            with timer_lock:
-                for s in timers["schedules"]:
-                    if (s["enabled"] and s["time"] == hhmm
-                            and now.weekday() in s["days"]
-                            and last_fired.get(s["id"]) != stamp):
-                        last_fired[s["id"]] = stamp
-                        due.append((s["unit"], s["action"] == "on"))
-
-                keep = []
-                for c in timers["countdowns"]:
-                    late = time.time() - c["run_at"]
-                    if late < 0:
-                        keep.append(c)          # not due yet
-                    elif late <= 60:
-                        due.append((c["unit"], c["action"] == "on"))
-                    # else: missed by over a minute (Pi was off), drop it
-                if len(keep) != len(timers["countdowns"]):
-                    timers["countdowns"] = keep
-                    save_timers()
-
-            for unit, on in due:
-                try:
-                    apply(unit, on)
-                except Exception as e:
-                    print("Timer failed to send:", e, flush=True)
-                time.sleep(0.2)
-        except Exception as e:
-            print("Scheduler error:", e, flush=True)
-        time.sleep(1)
+    return scheduler_module.scheduler(
+        timers, apply, save_timers, timer_lock, last_fired
+    )
 
 
 # ---------- Web page ----------
