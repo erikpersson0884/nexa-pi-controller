@@ -4,6 +4,8 @@ A small self-hosted web UI for controlling Nexa self-learning 433 MHz outlets fr
 
 [![Last Commit][last-commit-shield]][last-commit-url]
 [![Repo Size][repo-size-shield]][repo-size-url]
+[![Build Status][build-shield]][build-url]
+[![Test Coverage][coverage-shield]][coverage-url]
 [![Author][author-shield]][author-url]
 
 # Index
@@ -14,12 +16,12 @@ A small self-hosted web UI for controlling Nexa self-learning 433 MHz outlets fr
 1. [Getting started](#getting-started)
 1. [Configuration](#configuration)
 1. [Scripts](#scripts)
+1. [Testing](#testing)
+1. [Code analysis](#code-analysis)
 1. [Deployment](#deployment)
 1. [Troubleshooting](#troubleshooting)
 1. [Contributing](#contributing)
-1. [License](#license)
 1. [Authors](#authors)
-1. [Acknowledgments](#acknowledgments)
 
 # About the project
 
@@ -101,7 +103,7 @@ Pair one outlet at a time. Up to 16 outlets are supported per transmitter ID.
 
 # Configuration
 
-Using a `.env` file is optional. Copy `.env.example` to `.env` to change the defaults.
+Using a `.env` file is optional. Create one in the project directory to override the defaults.
 
 | Variable | Default | Description |
 |---|---|---|
@@ -123,9 +125,58 @@ Hardware settings are constants at the top of `webui.py`:
 | Command | What it does |
 |---|---|
 | `python3 webui.py` | Start the web UI |
+| `python3 -m unittest discover -s tests -v` | Run the test suite |
+| `python3 -m coverage run -m unittest discover -s tests && python3 -m coverage report` | Run tests and print a coverage report |
 | `docker compose up --build` | Build and start the container |
 | `docker compose logs -f` | Follow the container logs |
 | `docker compose down` | Stop the container |
+
+
+# Testing
+
+Tests use Python's built-in `unittest` framework and are located in `tests/`. They cover the web UI, favicon and logo assets, device listing, outlet switching, pairing, countdowns, schedules, and API validation.
+
+```sh
+python3 -m unittest discover -s tests -v
+```
+
+To measure coverage, install the optional `coverage` package and run:
+
+```sh
+python3 -m pip install coverage
+python3 -m coverage run -m unittest discover -s tests
+python3 -m coverage report
+```
+
+The tests mock radio transmission and file persistence where needed, so they can run without a Raspberry Pi or connected outlet.
+
+# Code analysis
+
+The project can optionally be analyzed with SonarQube. This requires access to your own server, so it is not part of the normal setup.
+
+1. Create a project in SonarQube and generate an access token.
+2. Set the server details as environment variables:
+
+   ```sh
+   export SONAR_HOST_URL=http://your-server:9000
+   export SONAR_TOKEN=your_token
+   ```
+
+3. Make sure the project key in `sonar-project.properties` matches your project, or override it:
+
+   ```sh
+   sonar-scanner -Dsonar.projectKey=your-project-key
+   ```
+
+4. Generate coverage, then run the analysis:
+
+   ```sh
+   python3 -m coverage run -m unittest discover -s tests
+   python3 -m coverage xml
+   sonar-scanner
+   ```
+
+Never commit your token.
 
 # Deployment
 
@@ -165,7 +216,7 @@ If you want to contribute, follow these steps:
 
 1. Fork the repository
 2. Create a new branch (`git checkout -b feature-branch`)
-3. Make your changes and test them against a real outlet
+3. Make your changes and run the test suite. Test hardware changes against a real outlet
 4. Commit your changes (`git commit -m 'Add new feature'`)
 5. Push to the branch (`git push origin feature-branch`)
 6. Create a Pull Request
@@ -190,7 +241,16 @@ If you want to contribute, follow these steps:
 [repo-size-url]: https://github.com/erikpersson0884/smart-socket-controller
 
 [author-shield]: https://img.shields.io/badge/Author-Erik-blue?style=for-the-badge
-[author-url]: {{AUTHOR_URL}}
+[author-url]: https://github.com/erikpersson0884
+
+[build-shield]: https://img.shields.io/github/actions/workflow/status/erikpersson0884/smart-socket-controller/build-and-push.yml?branch=main&style=for-the-badge
+[build-url]: https://github.com/erikpersson0884/smart-socket-controller/actions
+
+<!-- Test coverage shield (requires a workflow that writes .github/coverage.json to a "coverage" branch) -->
+[coverage-shield]: https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/erikpersson0884/smart-socket-controller/coverage/.github/coverage.json&style=for-the-badge&v=2
+[coverage-url]: https://github.com/erikpersson0884/smart-socket-controller/actions
+
+
 
 <!-- Tech stack shields -->
 [tech-1-shield]: https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=for-the-badge
