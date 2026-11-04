@@ -377,3 +377,9 @@ buildDays();
 refresh().catch(error => showToast(error.message));
 setInterval(refreshTimers, 15000);
 setInterval(refresh, 15000);
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}

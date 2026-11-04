@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo.svg') }}">
 <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
+<link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
+<meta name="theme-color" content="#121417">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
 <meta name="csrf-token" content="{{ csrf_token() }}">
 <title>Nexa Control</title>

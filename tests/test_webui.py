@@ -41,6 +41,7 @@ class WebUiTestCase(unittest.TestCase):
         self.assertIn('id="pair-name"', html)
         self.assertIn('id="rename-modal"', html)
         self.assertIn('id="remove-modal"', html)
+        self.assertIn('rel="manifest"', html)
         self.assertIn('>Pair</button>', html)
         self.assertIn('<script src="/static/app.js"></script>', html)
 
@@ -89,6 +90,14 @@ class WebUiTestCase(unittest.TestCase):
         with self.client.get("/static/app.js") as js:
             self.assertEqual(js.status_code, 200)
             self.assertIn(b"function pairOutlet(event)", js.data)
+
+        with self.client.get("/static/manifest.webmanifest") as manifest:
+            self.assertEqual(manifest.status_code, 200)
+            self.assertEqual(manifest.mimetype, "application/manifest+json")
+
+        with self.client.get("/sw.js") as worker:
+            self.assertEqual(worker.status_code, 200)
+            self.assertIn(b"addEventListener('fetch'", worker.data)
             self.assertIn(
                 b"if (schedules.length) parts.push(fmtDays(schedules[0].days).toLowerCase());",
                 js.data,

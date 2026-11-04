@@ -10,7 +10,7 @@ import time
 import uuid
 from datetime import datetime
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request, send_from_directory
 from flask_wtf.csrf import CSRFProtect
 
 import config
@@ -97,6 +97,11 @@ def valid_unit(unit):
 @app.get("/")
 def index():
     return render_template("index.html")
+
+
+@app.get("/sw.js")
+def service_worker():
+    return send_from_directory(app.static_folder, "sw.js")
 
 
 @app.get("/api/devices")
