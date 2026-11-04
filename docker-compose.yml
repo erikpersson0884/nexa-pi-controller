@@ -1,0 +1,15 @@
+services:
+  nexa-web:
+    build: .
+    image: nexa-web:latest
+    container_name: nexa-web
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    devices:
+      - /dev/gpiochip15:/dev/gpiochip15
+    environment:
+      - TZ=Europe/Stockholm
+      - DATA_DIR=/data
+    volumes:
+      - ./data:/data
