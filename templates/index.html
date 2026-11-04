@@ -3,87 +3,95 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" type="image/svg+xml" href="/static/logo.svg">
-<link rel="icon" type="image/png" href="/static/logo.png">
+<link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo.svg') }}">
+<link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
 <meta name="csrf-token" content="{{ csrf_token() }}">
 <title>Nexa Control</title>
-
 </head>
 <body>
 <main>
-  <h1>Nexa Control</h1>
-  <div id="list"></div>
-  <button class="all" onclick="addOutlet()">Add outlet</button>
-  <button class="all" onclick="allOff()">All off</button>
-
-  <details class="timers">
-    <summary>Timers</summary>
-    <div class="panel timer-panel">
-      <div id="timer-empty" class="empty timer-empty" hidden>
-        <div class="empty-title">Pair an outlet to set timers</div>
-        <div>Add an outlet first, then you can create countdowns and weekly schedules.</div>
-      </div>
-      <section id="countdown-section" class="timer-section">
-        <h3>Countdown</h3>
-        <div class="timer-form">
-          <label for="cd-unit">Outlet</label>
-          <select id="cd-unit"></select>
-          <label for="cd-action">Action</label>
-          <select id="cd-action">
-            <option value="off">Turn off</option>
-            <option value="on">Turn on</option>
-          </select>
-          <label for="cd-min">After</label>
-          <div class="input-with-suffix">
-            <input id="cd-min" type="number" min="1" max="1440" value="30">
-            <span>minutes</span>
-          </div>
-          <button onclick="addCountdown()">Start</button>
-        </div>
-      </section>
-
-      <section id="schedule-section" class="timer-section">
-        <h3>Weekly schedule</h3>
-        <div class="timer-form">
-          <label for="sc-unit">Outlet</label>
-          <select id="sc-unit"></select>
-          <label for="sc-action">Action</label>
-          <select id="sc-action">
-            <option value="on">Turn on</option>
-            <option value="off">Turn off</option>
-          </select>
-          <label for="sc-time">At</label>
-          <input id="sc-time" type="time" value="18:00">
-          <div class="day-picker">
-            <span class="field-label">Days</span>
-            <div class="days" id="sc-days"></div>
-          </div>
-          <button onclick="addSchedule()">Add schedule</button>
-        </div>
-      </section>
-
-      <section class="timer-section active-timers">
-        <h3>Active timers</h3>
-        <div id="timer-list"></div>
-      </section>
+  <header class="topbar">
+    <div>
+      <h1>Nexa Control</h1>
+      <p id="summary" class="summary">0 outlets · 0 on</p>
     </div>
-  </details>
-
-  <div id="msg"></div>
+    <button id="all-off" class="secondary" type="button">All off</button>
+  </header>
+  <section id="outlet-list" aria-live="polite"></section>
+  <button id="add-outlet" class="add-card" type="button">＋ Add outlet</button>
 </main>
-<div id="pair-modal" class="modal" hidden>
-  <form class="modal-card" onsubmit="pairOutlet(event)">
+
+<div id="pair-modal" class="overlay" hidden>
+  <form id="pair-form" class="dialog">
+    <button class="close-button" type="button" data-close="pair-modal" aria-label="Close">×</button>
     <h2>Pair outlet</h2>
-    <p>Put the outlet in learning mode, then click Pair.</p>
     <label for="pair-name">Outlet name</label>
-    <input id="pair-name" type="text" required maxlength="80">
-    <div class="modal-actions">
-      <button type="button" onclick="closePairModal()">Cancel</button>
-      <button type="submit" class="primary">Pair</button>
+    <input id="pair-name" type="text" maxlength="80" required>
+    <ol class="instructions">
+      <li>Put the outlet in learning mode.</li>
+      <li>Press Pair.</li>
+    </ol>
+    <div class="dialog-actions">
+      <button class="secondary" type="button" data-close="pair-modal">Cancel</button>
+      <button class="primary" type="submit">Pair</button>
     </div>
   </form>
 </div>
+
+<div id="timer-sheet" class="overlay sheet-overlay" hidden>
+  <section class="sheet" aria-labelledby="timer-sheet-title">
+    <div class="sheet-handle"></div>
+    <button class="close-button" type="button" data-close="timer-sheet" aria-label="Close">×</button>
+    <h2 id="timer-sheet-title"></h2>
+    <div id="timer-list"></div>
+    <button id="sheet-add-timer" class="primary full" type="button">＋ Add timer</button>
+  </section>
+</div>
+
+<div id="editor-sheet" class="overlay sheet-overlay" hidden>
+  <form id="timer-form" class="sheet">
+    <div class="sheet-handle"></div>
+    <button class="close-button" type="button" data-close="editor-sheet" aria-label="Close">×</button>
+    <h2 id="editor-title">Add timer</h2>
+    <div class="segmented" role="group" aria-label="Timer type">
+      <button type="button" data-mode="countdown" aria-pressed="true">In minutes</button>
+      <button type="button" data-mode="schedule" aria-pressed="false">At a time</button>
+    </div>
+    <div class="segmented" role="group" aria-label="Timer action">
+      <button type="button" data-action="on" aria-pressed="true">Turn on</button>
+      <button type="button" data-action="off" aria-pressed="false">Turn off</button>
+    </div>
+    <div id="countdown-editor">
+      <label for="timer-minutes">Minutes</label>
+      <div class="quick-chips">
+        <button type="button" data-minutes="15">15 min</button>
+        <button type="button" data-minutes="30">30 min</button>
+        <button type="button" data-minutes="60">1 h</button>
+        <button type="button" data-minutes="120">2 h</button>
+      </div>
+      <input id="timer-minutes" type="number" min="1" max="1440" value="30">
+    </div>
+    <div id="schedule-editor" hidden>
+      <label for="timer-time">Time</label>
+      <input id="timer-time" type="text" inputmode="numeric" maxlength="5"
+             pattern="(?:[01]\d|2[0-3]):[0-5]\d" placeholder="HH:MM" value="18:00">
+      <span class="field-label">Days</span>
+      <div id="timer-days" class="day-pills"></div>
+      <div class="quick-chips">
+        <button type="button" data-days="every">Every day</button>
+        <button type="button" data-days="weekdays">Weekdays</button>
+        <button type="button" data-days="weekends">Weekends</button>
+      </div>
+    </div>
+    <div class="dialog-actions">
+      <button id="delete-timer" class="danger" type="button" hidden>Delete</button>
+      <button class="primary full" type="submit">Save timer</button>
+    </div>
+  </form>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>

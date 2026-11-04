@@ -8,6 +8,7 @@ import secrets
 import threading
 import time
 import uuid
+from datetime import datetime
 
 from flask import Flask, jsonify, render_template, request
 from flask_wtf.csrf import CSRFProtect
@@ -50,6 +51,7 @@ configured_devices = storage.load_devices()
 state = storage.load_state()
 timers = storage.load_timers()
 last_fired = {}   # schedule id -> "YYYY-MM-DD HH:MM" (prevents double firing)
+last_sent = {}
 
 def save_state(st):
     storage.save_state(st)
@@ -64,7 +66,9 @@ def transmit(on, unit, group=0):
 
 
 def apply(unit, on):
-    return radio.apply(unit, on, state, save_state, transmit)
+    result = radio.apply(unit, on, state, save_state, transmit)
+    last_sent[unit] = datetime.now().strftime("%H:%M")
+    return result
 
 
 def scheduler():
@@ -97,10 +101,50 @@ def index():
 
 @app.get("/api/devices")
 def device_list():
-    return jsonify([
-        {"unit": d["unit"], "name": d["name"], "state": state.get(d["unit"])}
-        for d in configured_devices
-    ])
+    devices = []
+    for device in configured_devices:
+        result = {
+            "unit": device["unit"],
+            "name": device["name"],
+            "state": state.get(device["unit"]),
+        }
+        if device["unit"] in last_sent:
+            result["last_sent"] = last_sent[device["unit"]]
+        devices.append(result)
+    return jsonify(devices)
+
+
+@app.patch("/api/devices/<int:unit>")
+def rename_device(unit):
+    device = next((d for d in configured_devices if d["unit"] == unit), None)
+    if device is None:
+        return jsonify(error="Unknown outlet"), 404
+    data = request.get_json(silent=True) or {}
+    name = data.get("name")
+    if not isinstance(name, str) or not name.strip():
+        return jsonify(error="name is required"), 400
+    device["name"] = name.strip()
+    save_devices(configured_devices)
+    return jsonify(ok=True)
+
+
+@app.delete("/api/devices/<int:unit>")
+def remove_device(unit):
+    if not valid_unit(unit):
+        return jsonify(error="Unknown outlet"), 404
+    configured_devices[:] = [d for d in configured_devices if d["unit"] != unit]
+    state.pop(unit, None)
+    save_devices(configured_devices)
+    save_state(state)
+    with timer_lock:
+        timers["countdowns"] = [
+            c for c in timers["countdowns"] if c["unit"] != unit
+        ]
+        timers["schedules"] = [
+            s for s in timers["schedules"] if s["unit"] != unit
+        ]
+        save_timers()
+    return jsonify(ok=True)
 
 
 @app.post("/api/<int:unit>/<action>")
@@ -132,6 +176,7 @@ def pair():
         configured_devices.append({"unit": unit, "name": name.strip()})
         save_devices(configured_devices)
         state[unit] = True
+        last_sent[unit] = datetime.now().strftime("%H:%M")
         save_state(state)
     except Exception as e:
         return jsonify(error=str(e)), 500
@@ -229,6 +274,35 @@ def toggle_schedule(sid):
         for s in timers["schedules"]:
             if s["id"] == sid:
                 s["enabled"] = not s["enabled"]
+                save_timers()
+                return jsonify(ok=True)
+    return jsonify(error="Not found"), 404
+
+
+@app.patch("/api/schedules/<sid>")
+def update_schedule(sid):
+    data = request.get_json(silent=True) or {}
+    unit, action = data.get("unit"), data.get("action")
+    schedule_time, days = data.get("time"), data.get("days")
+    if not isinstance(unit, int) or not valid_unit(unit):
+        return jsonify(error="Unknown outlet"), 400
+    if action not in ("on", "off"):
+        return jsonify(error="Action must be on or off"), 400
+    if (not isinstance(schedule_time, str)
+            or not re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", schedule_time)):
+        return jsonify(error="Time must look like 18:30"), 400
+    if (not isinstance(days, list) or not days
+            or not all(isinstance(d, int) and 0 <= d <= 6 for d in days)):
+        return jsonify(error="Pick at least one day"), 400
+    with timer_lock:
+        for schedule in timers["schedules"]:
+            if schedule["id"] == sid:
+                schedule.update({
+                    "unit": unit,
+                    "action": action,
+                    "time": schedule_time,
+                    "days": sorted(set(days)),
+                })
                 save_timers()
                 return jsonify(ok=True)
     return jsonify(error="Not found"), 404

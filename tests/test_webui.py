@@ -34,9 +34,9 @@ class WebUiTestCase(unittest.TestCase):
             '<link rel="icon" type="image/png" href="/static/logo.png">',
             html,
         )
-        self.assertIn('<details class="timers">', html)
-        self.assertIn("<h3>Weekly schedule</h3>", html)
-        self.assertNotIn('<details class="timers" open>', html)
+        self.assertIn('id="outlet-list"', html)
+        self.assertIn('id="timer-sheet"', html)
+        self.assertIn('id="editor-sheet"', html)
         self.assertIn('id="pair-modal"', html)
         self.assertIn('id="pair-name"', html)
         self.assertIn('>Pair</button>', html)
@@ -55,21 +55,13 @@ class WebUiTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         with self.client.get("/static/app.js") as js_response:
             app_js = js_response.get_data(as_text=True)
+        page = response.get_data(as_text=True)
         self.assertIn(
             'No outlets configured',
             app_js,
         )
-        self.assertIn(
-            'Put a Nexa outlet in learning mode, then click "Add outlet" '
-            'to pair it.',
-            app_js,
-        )
-        page = response.get_data(as_text=True)
-        self.assertIn('Pair an outlet to set timers', page)
-        self.assertIn(
-            'Add an outlet first, then you can create countdowns and weekly schedules.',
-            page,
-        )
+        self.assertIn('Put the outlet in learning mode.', page)
+        self.assertIn('Press Pair.', page)
 
     def test_mutating_requests_require_a_csrf_token(self):
         self.client.application.config["WTF_CSRF_ENABLED"] = True
@@ -95,6 +87,10 @@ class WebUiTestCase(unittest.TestCase):
         with self.client.get("/static/app.js") as js:
             self.assertEqual(js.status_code, 200)
             self.assertIn(b"function pairOutlet(event)", js.data)
+            self.assertIn(
+                b"if (schedules.length) parts.push(fmtDays(schedules[0].days).toLowerCase());",
+                js.data,
+            )
 
     def test_logo_assets_are_served(self):
         with self.client.get("/static/logo.svg") as svg:
@@ -144,6 +140,37 @@ class WebUiTestCase(unittest.TestCase):
             "unit": 1, "name": "Kitchen",
         })
         self.assertTrue(webui.state[1])
+
+    def test_device_can_be_renamed_and_removed_with_timers(self):
+        with patch.object(webui, "save_devices"):
+            response = self.client.patch("/api/devices/0", json={"name": "Kitchen"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(webui.configured_devices[0]["name"], "Kitchen")
+
+        webui.timers["schedules"].append({
+            "id": "schedule1", "unit": 0, "action": "on",
+            "time": "08:00", "days": [0], "enabled": True,
+        })
+        with patch.object(webui, "save_devices"), patch.object(webui, "save_state"), \
+                patch.object(webui, "save_timers"):
+            response = self.client.delete("/api/devices/0")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(webui.configured_devices, [])
+        self.assertEqual(webui.timers["schedules"], [])
+
+    def test_schedule_can_be_updated(self):
+        webui.timers["schedules"].append({
+            "id": "schedule1", "unit": 0, "action": "on",
+            "time": "08:00", "days": [0], "enabled": True,
+        })
+        with patch.object(webui, "save_timers"):
+            response = self.client.patch(
+                "/api/schedules/schedule1",
+                json={"unit": 0, "action": "off", "time": "18:30", "days": [5, 6]},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(webui.timers["schedules"][0]["time"], "18:30")
+        self.assertEqual(webui.timers["schedules"][0]["days"], [5, 6])
 
     def test_countdown_can_be_added_read_and_deleted(self):
         with patch.object(webui, "save_timers"):
