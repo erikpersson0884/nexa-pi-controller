@@ -49,6 +49,12 @@ This repository contains **only the controller app**. It requires a 433 MHz ASK/
 - Runs directly with Python or as a Docker container
 - Docker runs with Gunicorn as the production WSGI server
 
+## Screenshots
+
+| Dashboard | Timers |
+|---|---|
+| ![Dashboard](docs/images/dashboard.png) | ![Timers](docs/images/timers.png) |
+
 # Getting started
 
 ## Prerequisites
