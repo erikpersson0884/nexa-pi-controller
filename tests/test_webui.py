@@ -1,14 +1,29 @@
 import unittest
 import re
+import os
 from unittest.mock import patch
+
+os.environ.setdefault("SECRET_KEY", "test-secret-key")
+os.environ.setdefault("AUTH_USERNAME", "admin")
+os.environ.setdefault(
+    "AUTH_PASSWORD_HASH",
+    "$argon2id$v=19$m=65536,t=3,p=4$qdYeh8vk7ZB8iwFoTYVQYg$Kjew+lbiX79B7HkSvR0v/H1gBdXEHhyOL6dUbvTmB6U",
+)
 
 import webui
 
 
 class WebUiTestCase(unittest.TestCase):
     def setUp(self):
+        webui.AUTH_USERNAME = "admin"
+        webui.AUTH_PASSWORD_HASH = (
+            "$argon2id$v=19$m=65536,t=3,p=4$qdYeh8vk7ZB8iwFoTYVQYg$"
+            "Kjew+lbiX79B7HkSvR0v/H1gBdXEHhyOL6dUbvTmB6U"
+        )
         self.client = webui.app.test_client()
         self.client.application.config["WTF_CSRF_ENABLED"] = False
+        with self.client.session_transaction() as session:
+            session["authenticated"] = True
         self.devices = webui.configured_devices
         self.state = webui.state
         self.timers = webui.timers
@@ -49,6 +64,23 @@ class WebUiTestCase(unittest.TestCase):
         response = self.client.get("/")
 
         self.assertIn('name="csrf-token"', response.get_data(as_text=True))
+
+    def test_api_requires_authentication(self):
+        with self.client.session_transaction() as session:
+            session.clear()
+        response = self.client.get("/api/devices")
+        self.assertEqual(response.status_code, 401)
+
+    def test_login_accepts_valid_credentials(self):
+        with self.client.session_transaction() as session:
+            session.clear()
+        response = self.client.post(
+            "/login",
+            data={"username": "admin", "password": "test-password"},
+        )
+        self.assertEqual(response.status_code, 302)
+        with self.client.session_transaction() as session:
+            self.assertTrue(session["authenticated"])
 
     def test_homepage_explains_when_no_outlets_have_been_added(self):
         webui.configured_devices = []

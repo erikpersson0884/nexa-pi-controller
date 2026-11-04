@@ -48,6 +48,7 @@ This repository contains **only the controller app**. It requires a 433 MHz ASK/
 - Timers, outlets and last-known states are saved to disk and survive restarts
 - Runs directly with Python or as a Docker container
 - Docker runs with Gunicorn as the production WSGI server
+- Login protection with Argon2id password hashing and CSRF-protected sessions
 
 ## Screenshots
 
@@ -80,6 +81,23 @@ Check the labels printed on your module, because the pin order can vary between 
 ## Installation
 
 ```sh
+# Generate a password hash (run locally, then put the output in .env)
+python3 -m pip install argon2-cffi
+python3 -c "from argon2 import PasswordHasher; print(PasswordHasher().hash(input('Password: ')))"
+```
+
+Create a `.env` file:
+
+```env
+SECRET_KEY=replace-with-a-long-random-secret
+AUTH_USERNAME=admin
+AUTH_PASSWORD_HASH=replace-with-the-generated-argon2id-hash
+COOKIE_SECURE=true
+```
+
+Then install and run:
+
+```sh
 # Clone the repository
 git clone https://github.com/erikpersson0884/smart-socket-controller.git
 
@@ -89,7 +107,7 @@ cd smart-socket-controller
 # Install dependencies
 sudo apt update
 sudo apt install python3-flask python3-lgpio python3-dotenv
-python3 -m pip install --user Flask-WTF
+python3 -m pip install --user Flask-WTF argon2-cffi
 
 # Find the GPIO chip number of the Pi's header (look for pinctrl-rp1)
 gpiodetect
@@ -111,7 +129,7 @@ Pair one outlet at a time. Up to 16 outlets are supported per transmitter ID.
 
 # Configuration
 
-Using a `.env` file is optional. Create one in the project directory to override the defaults.
+Create a `.env` file in the project directory for required secrets and local overrides.
 
 | Variable | Default | Description |
 |---|---|---|
@@ -120,7 +138,10 @@ Using a `.env` file is optional. Create one in the project directory to override
 | `DATA_DIR` | project `data/` folder (`/data` in Docker) | Where `nexa_state.json`, `nexa_devices.json` and `nexa_timers.json` are stored |
 | `GPIO_MODE` | `hardware` | Set to `mock` on a development computer without GPIO hardware. Pairing and switching are simulated |
 | `TZ` | system time zone | Time zone used by schedules (set it in Docker) |
-| `SECRET_KEY` | generated at startup | Secret used to protect web requests against CSRF. Set a stable random value in production |
+| `SECRET_KEY` | required | Stable random secret used to sign sessions and CSRF tokens |
+| `AUTH_USERNAME` | `admin` | Username required to sign in |
+| `AUTH_PASSWORD_HASH` | required | Argon2id hash of the login password; never store the plaintext password |
+| `COOKIE_SECURE` | `false` | Set to `true` when the app is served over HTTPS |
 
 Hardware settings are constants at the top of `webui.py`:
 

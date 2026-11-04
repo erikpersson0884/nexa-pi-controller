@@ -1,6 +1,5 @@
 const CACHE_NAME = 'nexa-control-v1';
 const APP_SHELL = [
-  '/',
   '/static/app.css',
   '/static/app.js',
   '/static/logo.svg',
@@ -27,7 +26,8 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
-  if (new URL(event.request.url).pathname.startsWith('/api/')) return;
+  const pathname = new URL(event.request.url).pathname;
+  if (!pathname.startsWith('/static/')) return;
   event.respondWith(
     fetch(event.request)
       .then(response => {

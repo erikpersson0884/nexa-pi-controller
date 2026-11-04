@@ -4,13 +4,15 @@
 
 import re
 import os
-import secrets
 import threading
 import time
 import uuid
 from datetime import datetime
 
+from argon2 import PasswordHasher
+from argon2.exceptions import InvalidHashError, VerifyMismatchError
 from flask import Flask, jsonify, render_template, request, send_from_directory
+from flask import redirect, session, url_for
 from flask_wtf.csrf import CSRFProtect
 
 import config
@@ -27,6 +29,9 @@ TX_ID = config.TX_ID
 T = config.T
 REPEAT = config.REPEAT
 GPIO_MODE = config.GPIO_MODE
+SECRET_KEY = config.SECRET_KEY
+AUTH_USERNAME = config.AUTH_USERNAME
+AUTH_PASSWORD_HASH = config.AUTH_PASSWORD_HASH
 PROJECT_DIR = config.PROJECT_DIR
 DATA_DIR = config.DATA_DIR
 STATE_FILE = config.STATE_FILE
@@ -36,9 +41,19 @@ TIMER_FILE = config.TIMER_FILE
 tx_lock = radio.tx_lock
 timer_lock = threading.Lock()   # protects the timers dict
 app = Flask(__name__)
-app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", secrets.token_hex(32))
+if not SECRET_KEY:
+    raise RuntimeError("SECRET_KEY must be configured")
+if not AUTH_PASSWORD_HASH:
+    raise RuntimeError("AUTH_PASSWORD_HASH must be configured")
+app.config.update(
+    SECRET_KEY=SECRET_KEY,
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=config.COOKIE_SECURE,
+)
 csrf = CSRFProtect()
 csrf.init_app(app)
+password_hasher = PasswordHasher()
 
 
 # ---------- Legacy-compatible storage/radio wrappers ----------
@@ -79,7 +94,48 @@ def scheduler():
 
 # ---------- Web page ----------
 
+@app.before_request
+def require_login():
+    if request.endpoint in {"login", "login_submit", "static", "service_worker"}:
+        return None
+    if not session.get("authenticated"):
+        if request.path.startswith("/api/"):
+            return jsonify(error="authentication required"), 401
+        return redirect(url_for("login", next=request.full_path))
+    return None
 
+
+@app.get("/login")
+def login():
+    if session.get("authenticated"):
+        return redirect(url_for("index"))
+    return render_template("login.html")
+
+
+@app.post("/login")
+def login_submit():
+    username = request.form.get("username", "")
+    password = request.form.get("password", "")
+    try:
+        valid = (
+            username == AUTH_USERNAME
+            and password_hasher.verify(AUTH_PASSWORD_HASH, password)
+        )
+    except (VerifyMismatchError, InvalidHashError):
+        valid = False
+    if not valid:
+        return render_template("login.html", error="Invalid username or password"), 401
+    session.clear()
+    session["authenticated"] = True
+    next_url = request.form.get("next", "")
+    destination = next_url if next_url.startswith("/") and not next_url.startswith("//") else url_for("index")
+    return redirect(destination)
+
+
+@app.post("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
 
 # ---------- Helpers ----------
 def device_name(unit):
