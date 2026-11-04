@@ -102,7 +102,7 @@ input:focus { outline:2px solid color-mix(in srgb, var(--primary) 70%, transpare
                             font-size:1.35rem; background:transparent; }
 .reorder-controls button:disabled { opacity:.3; }
 .drag-handle { touch-action:none; cursor:grab; font-size:1.55rem !important; }
-.dragging { position:relative; z-index:2; border:1.5px solid #4ade80;
+.dragging { position:fixed; z-index:2; border:1.5px solid #4ade80;
             background:#232830; box-shadow:0 18px 40px rgba(0,0,0,.45); }
 .reorder-placeholder { height:64px; margin-bottom:12px; border:1.5px dashed #4ade80;
                        border-radius:16px; }

@@ -182,12 +182,7 @@ function updateDragTransforms() {
   if (!dragged) return;
   const cards = [...document.querySelectorAll('.reorder-card')];
   cards.forEach((card, index) => {
-    const offset = index === dragged.index ? 0 :
-      (dragged.placeholderIndex - dragged.index) * (index >= Math.min(dragged.index, dragged.placeholderIndex) &&
-      index <= Math.max(dragged.index, dragged.placeholderIndex) ? (index > dragged.index ? -1 : 1) : 0);
-    if (card !== dragged.card) {
-      card.style.transform = `translateY(${offset * (dragged.height + 12)}px)`;
-    }
+    if (card !== dragged.card) card.style.transform = '';
   });
 }
 
@@ -208,31 +203,39 @@ function finishDragging(cancelled = false) {
 function startDragging(event, card, index) {
   if (!reorderMode || event.button !== 0) return;
   event.preventDefault();
+  const rect = card.getBoundingClientRect();
   const height = card.offsetHeight;
   const placeholder = el('div', 'reorder-placeholder');
   placeholder.style.height = `${height}px`;
-  card.after(placeholder);
+  card.before(placeholder);
   dragged = {
     card, index, placeholderIndex: index, height, pointerId: event.pointerId,
-    startY: event.clientY, placeholder
+    startY: event.clientY, offsetY: event.clientY - rect.top, placeholder
   };
+  card.style.width = `${rect.width}px`;
+  card.style.left = `${rect.left}px`;
+  card.style.top = `${rect.top}px`;
   card.classList.add('dragging');
   card.setPointerCapture(event.pointerId);
   const move = moveEvent => {
     if (!dragged) return;
+    if (Math.abs(moveEvent.clientY - dragged.startY) < 10) return;
     dragged.card.style.transform =
-      `translateY(${moveEvent.clientY - dragged.startY}px)`;
+      `translateY(0)`;
+    dragged.card.style.top =
+      `${moveEvent.clientY - dragged.offsetY}px`;
     const edge = 60;
     if (moveEvent.clientY < edge) window.scrollBy(0, -8);
     else if (moveEvent.clientY > window.innerHeight - edge) window.scrollBy(0, 8);
     const cards = [...document.querySelectorAll('.reorder-card:not(.dragging)')];
-    let target = index;
-    cards.forEach((other, otherIndex) => {
-      if (moveEvent.clientY > other.getBoundingClientRect().top + other.offsetHeight / 2) {
-        target = otherIndex + (otherIndex >= index ? 1 : 0);
-      }
-    });
-    dragged.placeholderIndex = Math.max(0, Math.min(reorderDevices.length - 1, target));
+    const target = cards.findIndex(other =>
+      moveEvent.clientY < other.getBoundingClientRect().top + other.offsetHeight / 2);
+    const nextIndex = target === -1 ? cards.length : target;
+    const targetCard = cards[nextIndex];
+    if (targetCard) targetCard.before(dragged.placeholder);
+    else document.getElementById('outlet-list').append(dragged.placeholder);
+    dragged.placeholderIndex = Math.max(
+      0, Math.min(reorderDevices.length - 1, nextIndex));
     updateDragTransforms();
   };
   card.onpointermove = move;
