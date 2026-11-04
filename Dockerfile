@@ -7,8 +7,10 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 COPY webui.py /app/webui.py
+COPY config.py radio.py scheduler.py storage.py /app/
+COPY templates /app/templates
 COPY static /app/static
 
 # lgpio writes small temporary files to the working directory, so it must be writable
-WORKDIR /data
+WORKDIR /app
 CMD ["python3", "/app/webui.py"]
