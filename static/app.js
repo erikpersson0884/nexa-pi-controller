@@ -63,9 +63,11 @@ function renderDevices() {
     left.appendChild(el('div', 'name', d.name));
     const status = d.state === true ? 'On' : d.state === false ? 'Off' : 'Unknown';
     left.appendChild(el('div', 'status' + (d.state ? ' on' : ''), status));
-    const btns = el('div', 'btns');
-    const bOn = el('button', 'on', 'On');
-    const bOff = el('button', '', 'Off');
+    const btns = el('div', 'btns outlet-switch');
+    const bOn = el('button', d.state === true ? 'on active' : '', 'On');
+    const bOff = el('button', d.state === false ? 'on active' : '', 'Off');
+    bOn.setAttribute('aria-pressed', d.state === true);
+    bOff.setAttribute('aria-pressed', d.state === false);
     bOn.onclick = () => send(d.unit, 'on', [bOn, bOff]);
     bOff.onclick = () => send(d.unit, 'off', [bOn, bOff]);
     btns.append(bOn, bOff);
