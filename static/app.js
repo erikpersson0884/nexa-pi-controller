@@ -174,6 +174,9 @@ function fmtRemaining(seconds) {
 
 function fmtDays(days) {
   if (days.length === 7) return 'Every day';
+  const sorted = [...days].sort((a, b) => a - b).join(',');
+  if (sorted === '0,1,2,3,4') return 'Weekdays';
+  if (sorted === '5,6') return 'Weekends';
   return days.map(day => DAY_NAMES[day]).join(', ');
 }
 
