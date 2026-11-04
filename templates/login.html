@@ -1,25 +1,27 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
-<title>Sign in - Nexa Control</title>
-</head>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+        <title>Sign in - Nexa Control</title>
+        <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo.svg') }}">
+        <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
+    </head>
 <body>
 <main class="auth-main">
-  <form class="dialog auth-card" method="post">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
-    <h1>Nexa Control</h1>
-    <p class="muted">Sign in to control your outlets.</p>
-    {% if error %}<p class="auth-error">{{ error }}</p>{% endif %}
-    <label for="username">Username</label>
-    <input id="username" name="username" type="text" autocomplete="username" required>
-    <label for="password">Password</label>
-    <input id="password" name="password" type="password" autocomplete="current-password" required>
-    <button class="primary full" type="submit">Sign in</button>
-  </form>
+    <form class="dialog auth-card" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
+        <h1>Nexa Control</h1>
+        <p class="muted">Sign in to control your outlets.</p>
+        {% if error %}<p class="auth-error">{{ error }}</p>{% endif %}
+        <label for="username">Username</label>
+        <input id="username" name="username" type="text" autocomplete="username" required>
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <button class="primary full" type="submit">Sign in</button>
+    </form>
 </main>
 </body>
 </html>
