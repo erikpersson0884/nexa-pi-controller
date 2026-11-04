@@ -268,7 +268,6 @@ async function renameDevice(device) {
   input.value = device.name;
   document.getElementById('rename-modal').hidden = false;
   input.focus();
-  input.select();
 }
 
 async function saveDeviceName(event) {
@@ -461,7 +460,7 @@ async function deleteTimer() {
 
 function openPairModal() {
   const input = document.getElementById('pair-name');
-  input.value = `Outlet ${devices.length + 1}`;
+  input.placeholder = `Outlet ${devices.length + 1}`;
   document.getElementById('pair-modal').hidden = false;
   input.focus();
   input.select();
