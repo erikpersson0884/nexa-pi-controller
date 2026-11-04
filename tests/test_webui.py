@@ -43,6 +43,21 @@ class WebUiTestCase(unittest.TestCase):
 
         self.assertIn('name="csrf-token"', response.get_data(as_text=True))
 
+    def test_homepage_explains_when_no_outlets_have_been_added(self):
+        webui.configured_devices = []
+
+        response = self.client.get("/")
+
+        self.assertIn(
+            'No outlets configured',
+            response.get_data(as_text=True),
+        )
+        self.assertIn(
+            'Put a Nexa outlet in learning mode, then click "Add outlet" '
+            'to pair it.',
+            response.get_data(as_text=True),
+        )
+
     def test_mutating_requests_require_a_csrf_token(self):
         self.client.application.config["WTF_CSRF_ENABLED"] = True
 

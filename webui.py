@@ -28,15 +28,11 @@ REPEAT = 6
 PORT = int(os.getenv("PORT", 8080))
 HOST = os.getenv("HOST", "127.0.0.1")
 
-# Used only the first time, before nexa_devices.json exists.
-DEVICES = [
-    {"unit": 0, "name": "Outlet 1"},
-    {"unit": 1, "name": "Outlet 2"},
-]
 # ------------------------------
 
 # In Docker, set DATA_DIR=/data and mount a volume there.
-DATA_DIR = os.getenv("DATA_DIR", os.path.expanduser("~"))
+PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.getenv("DATA_DIR", os.path.join(PROJECT_DIR, "data"))
 STATE_FILE = os.path.join(DATA_DIR, "nexa_state.json")
 DEVICES_FILE = os.path.join(DATA_DIR, "nexa_devices.json")
 TIMER_FILE = os.path.join(DATA_DIR, "nexa_timers.json")
@@ -62,10 +58,10 @@ def load_devices():
             if 0 <= int(d["unit"]) <= 15 and str(d["name"]).strip()
         ]
     except FileNotFoundError:
-        return DEVICES.copy()
+        return []
     except Exception as e:
-        print("Could not read devices file, using defaults:", e, flush=True)
-        return DEVICES.copy()
+        print("Could not read devices file, using no devices:", e, flush=True)
+        return []
 
 
 def save_devices(devices):
@@ -258,7 +254,8 @@ PAGE = """<!doctype html>
   .timer .desc { font-size:.95rem; }
   .timer .sub { font-size:.8rem; color:var(--muted); }
   .timer.disabled .desc { opacity:.5; }
-  .empty { color:var(--muted); font-size:.9rem; padding:8px 0; }
+  .empty { color:var(--muted); font-size:.9rem; padding:12px 0 14px; line-height:1.5; }
+  .empty-title { color:var(--text); font-weight:600; margin-bottom:2px; }
   #msg { text-align:center; color:var(--muted); font-size:.85rem;
          margin-top:10px; min-height:1.2em; }
 </style>
@@ -352,6 +349,17 @@ async function loadDevices() {
 function renderDevices() {
   const list = document.getElementById('list');
   list.innerHTML = '';
+  if (devices.length === 0) {
+    const empty = el('div', 'empty');
+    empty.appendChild(el('div', 'empty-title', 'No outlets configured'));
+    empty.appendChild(el(
+      'div',
+      '',
+      'Put a Nexa outlet in learning mode, then click "Add outlet" to pair it.'
+    ));
+    list.appendChild(empty);
+    return;
+  }
   for (const d of devices) {
     const card = el('div', 'card');
     const left = el('div');
