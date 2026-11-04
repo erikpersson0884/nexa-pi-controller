@@ -20,11 +20,11 @@ jobs:
           python-version: "3.11"
 
       - name: Install test dependencies
-        run: python -m pip install --upgrade pip flask python-dotenv coverage
+        run: python -m pip install --upgrade pip flask python-dotenv lgpio coverage
 
       - name: Run tests with coverage
         run: |
-          python -m coverage run --source=app,storage -m unittest discover -s tests
+          python -m coverage run --source=webui -m unittest discover -s tests
           python -m coverage report -m | tee coverage-report.txt
 
       - name: Calculate coverage
