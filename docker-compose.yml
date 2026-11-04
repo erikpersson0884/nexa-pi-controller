@@ -11,5 +11,6 @@ services:
     environment:
       - TZ=Europe/Stockholm
       - DATA_DIR=/data
+      - HOST=0.0.0.0
     volumes:
       - ./data:/data

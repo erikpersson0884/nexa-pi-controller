@@ -26,6 +26,7 @@ TX_ID = 12345678     # must match the ID your outlets were paired with
 T = 260e-6
 REPEAT = 6
 PORT = int(os.getenv("PORT", 8080))
+HOST = os.getenv("HOST", "127.0.0.1")
 
 # Used only the first time, before nexa_devices.json exists.
 DEVICES = [
@@ -689,4 +690,4 @@ def delete_schedule(sid):
 
 if __name__ == "__main__":
     threading.Thread(target=scheduler, daemon=True).start()
-    app.run(host="0.0.0.0", port=PORT)
+    app.run(host=HOST, port=PORT)

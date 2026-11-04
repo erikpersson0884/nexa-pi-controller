@@ -91,7 +91,7 @@ gpiodetect
 python3 webui.py
 ```
 
-The app runs on `http://<pi-ip>:8080` (or `http://raspberrypi.local:8080`). Edit `CHIP` at the top of `webui.py` if `gpiodetect` shows a different number than 15.
+The app runs on `http://127.0.0.1:8080` by default. To access it from another device on the network, set `HOST=0.0.0.0` in `.env`, then open `http://<pi-ip>:8080` (or `http://raspberrypi.local:8080`). Edit `CHIP` at the top of `webui.py` if `gpiodetect` shows a different number than 15.
 
 ## Pairing outlets
 
@@ -109,6 +109,7 @@ Using a `.env` file is optional. Create one in the project directory to override
 | Variable | Default | Description |
 |---|---|---|
 | `PORT` | `8080` | Port the web UI listens on |
+| `HOST` | `127.0.0.1` | Network interface to bind to. Use `0.0.0.0` only when the app must be reachable from other devices |
 | `DATA_DIR` | home folder (`/data` in Docker) | Where `nexa_state.json`, `nexa_devices.json` and `nexa_timers.json` are stored |
 | `TZ` | system time zone | Time zone used by schedules (set it in Docker) |
 | `SECRET_KEY` | generated at startup | Secret used to protect web requests against CSRF. Set a stable random value in production |
@@ -242,7 +243,7 @@ If you want to contribute, follow these steps:
 [repo-size-shield]: https://img.shields.io/github/repo-size/erikpersson0884/smart-socket-controller?style=for-the-badge&cacheSeconds=60
 [repo-size-url]: https://github.com/erikpersson0884/smart-socket-controller
 
-[author-shield]: https://img.shields.io/badge/Author-Erik-blue?style=for-the-badge
+[author-shield]: https://img.shields.io/badge/Author-Erik-purple?style=for-the-badge
 [author-url]: https://github.com/erikpersson0884
 
 [build-shield]: https://img.shields.io/github/actions/workflow/status/erikpersson0884/smart-socket-controller/build-and-push.yml?branch=main&style=for-the-badge
