@@ -56,7 +56,7 @@ This repository contains **only the controller app**. It requires a 433 MHz ASK/
 - A 433 MHz transmitter module (the 3-pin board, not the receiver)
 - About 17 cm of solid wire for the antenna, soldered to the module's ANT pad
 - Nexa self-learning outlets
-- Python 3 with Flask, lgpio and python-dotenv, or Docker
+- Python 3 with Flask, Flask-WTF, lgpio and python-dotenv, or Docker
 
 ## Wiring
 
@@ -82,6 +82,7 @@ cd smart-socket-controller
 # Install dependencies
 sudo apt update
 sudo apt install python3-flask python3-lgpio python3-dotenv
+python3 -m pip install --user Flask-WTF
 
 # Find the GPIO chip number of the Pi's header (look for pinctrl-rp1)
 gpiodetect
@@ -110,6 +111,7 @@ Using a `.env` file is optional. Create one in the project directory to override
 | `PORT` | `8080` | Port the web UI listens on |
 | `DATA_DIR` | home folder (`/data` in Docker) | Where `nexa_state.json`, `nexa_devices.json` and `nexa_timers.json` are stored |
 | `TZ` | system time zone | Time zone used by schedules (set it in Docker) |
+| `SECRET_KEY` | generated at startup | Secret used to protect web requests against CSRF. Set a stable random value in production |
 
 Hardware settings are constants at the top of `webui.py`:
 

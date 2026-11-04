@@ -5,6 +5,7 @@
 import json
 import os
 import re
+import secrets
 import threading
 import time
 import uuid
@@ -13,8 +14,10 @@ from datetime import datetime
 import lgpio
 from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template_string, request
+from flask_wtf.csrf import CSRFProtect
 
 load_dotenv()
+
 
 # ---------- Settings ----------
 CHIP = 15            # pinctrl-rp1 (from gpiodetect)
@@ -40,6 +43,9 @@ TIMER_FILE = os.path.join(DATA_DIR, "nexa_timers.json")
 tx_lock = threading.Lock()      # only one radio transmission at a time
 timer_lock = threading.Lock()   # protects the timers dict
 app = Flask(__name__)
+app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", secrets.token_hex(32))
+csrf = CSRFProtect()
+csrf.init_app(app)
 
 
 # ---------- Devices ----------
@@ -199,6 +205,7 @@ PAGE = """<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" type="image/svg+xml" href="/static/logo.svg">
 <link rel="icon" type="image/png" href="/static/logo.png">
+<meta name="csrf-token" content="{{ csrf_token() }}">
 <title>Nexa Control</title>
 <style>
   :root { --bg:#f4f5f7; --card:#fff; --text:#1c1e21; --muted:#6b7280;
@@ -293,8 +300,12 @@ let devices = [];
 
 async function api(method, url, body) {
   const opts = {method: method};
+  if (method !== 'GET') {
+    opts.headers = {'X-CSRFToken':
+      document.querySelector('meta[name="csrf-token"]').content};
+  }
   if (body !== undefined) {
-    opts.headers = {'Content-Type': 'application/json'};
+    opts.headers = {...opts.headers, 'Content-Type': 'application/json'};
     opts.body = JSON.stringify(body);
   }
   const r = await fetch(url, opts);

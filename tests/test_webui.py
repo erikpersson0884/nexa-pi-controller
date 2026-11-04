@@ -1,4 +1,5 @@
 import unittest
+import re
 from unittest.mock import patch
 
 import webui
@@ -7,6 +8,7 @@ import webui
 class WebUiTestCase(unittest.TestCase):
     def setUp(self):
         self.client = webui.app.test_client()
+        self.client.application.config["WTF_CSRF_ENABLED"] = False
         self.devices = webui.configured_devices
         self.state = webui.state
         self.timers = webui.timers
@@ -32,6 +34,28 @@ class WebUiTestCase(unittest.TestCase):
             '<link rel="icon" type="image/png" href="/static/logo.png">',
             html,
         )
+
+    def test_homepage_contains_csrf_token_for_api_requests(self):
+        response = self.client.get("/")
+
+        self.assertIn('name="csrf-token"', response.get_data(as_text=True))
+
+    def test_mutating_requests_require_a_csrf_token(self):
+        self.client.application.config["WTF_CSRF_ENABLED"] = True
+
+        rejected = self.client.post("/api/0/on")
+        self.assertEqual(rejected.status_code, 400)
+
+        page = self.client.get("/")
+        token = re.search(
+            r'<meta name="csrf-token" content="([^"]+)"', page.get_data(as_text=True)
+        ).group(1)
+        with patch.object(webui, "apply"):
+            accepted = self.client.post(
+                "/api/0/on",
+                headers={"X-CSRFToken": token},
+            )
+        self.assertEqual(accepted.status_code, 200)
 
     def test_logo_assets_are_served(self):
         with self.client.get("/static/logo.svg") as svg:
