@@ -1,7 +1,9 @@
-FROM debian:bookworm-slim
+FROM python:3.12-slim-bookworm
 
+# lgpio is built from source by pip, so it needs a compiler and swig
 RUN apt-get update \
- && apt-get install -y --no-install-recommends python3 python3-flask python3-lgpio python3-dotenv \
+ && apt-get install -y --no-install-recommends build-essential swig \
+ && pip install --no-cache-dir flask python-dotenv lgpio \
  && rm -rf /var/lib/apt/lists/*
 
 COPY webui.py /app/webui.py
