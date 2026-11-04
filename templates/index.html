@@ -26,32 +26,41 @@
       </div>
       <section id="countdown-section" class="timer-section">
         <h3>Countdown</h3>
-        <div class="row">
+        <div class="timer-form">
+          <label for="cd-unit">Outlet</label>
           <select id="cd-unit"></select>
+          <label for="cd-action">Action</label>
           <select id="cd-action">
             <option value="off">Turn off</option>
             <option value="on">Turn on</option>
           </select>
-          <span>in</span>
-          <input id="cd-min" type="number" min="1" max="1440" value="30">
-          <span>min</span>
+          <label for="cd-min">After</label>
+          <div class="input-with-suffix">
+            <input id="cd-min" type="number" min="1" max="1440" value="30">
+            <span>minutes</span>
+          </div>
           <button onclick="addCountdown()">Start</button>
         </div>
       </section>
 
       <section id="schedule-section" class="timer-section">
         <h3>Weekly schedule</h3>
-        <div class="row">
+        <div class="timer-form">
+          <label for="sc-unit">Outlet</label>
           <select id="sc-unit"></select>
+          <label for="sc-action">Action</label>
           <select id="sc-action">
             <option value="on">Turn on</option>
             <option value="off">Turn off</option>
           </select>
-          <span>at</span>
+          <label for="sc-time">At</label>
           <input id="sc-time" type="time" value="18:00">
+          <div class="day-picker">
+            <span class="field-label">Days</span>
+            <div class="days" id="sc-days"></div>
+          </div>
+          <button onclick="addSchedule()">Add schedule</button>
         </div>
-        <div class="days" id="sc-days"></div>
-        <button onclick="addSchedule()">Add schedule</button>
       </section>
 
       <section class="timer-section active-timers">

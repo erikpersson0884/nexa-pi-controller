@@ -21,8 +21,8 @@
   .timers summary::marker { color:var(--muted); }
   .timer-panel { margin-top:10px; padding:14px; }
   .timer-section + .timer-section { border-top:1px solid var(--line);
-                                    margin-top:18px; padding-top:4px; }
-  .timer-section h3 { color:var(--text); margin-top:10px; }
+                                    margin-top:20px; padding-top:18px; }
+  .timer-section h3 { color:var(--text); margin:0 0 12px; }
   .active-timers { margin-top:18px; }
   .name { font-weight:600; }
   .status { font-size:.85rem; color:var(--muted); }
@@ -37,10 +37,21 @@
   select, input[type=number], input[type=time] {
     font-size:1rem; padding:10px; border-radius:10px; color:var(--text);
     border:1px solid var(--line); background:var(--bg); }
-  input[type=number] { width:80px; }
-  .days { display:flex; gap:6px; flex-wrap:wrap; margin:10px 0; }
+  .timer-form { display:grid; grid-template-columns:auto minmax(180px, 1fr);
+                gap:10px 12px; align-items:center; }
+  .timer-form > label, .field-label { color:var(--muted); font-size:.85rem;
+                                      font-weight:600; }
+  .timer-form > select, .timer-form > input { width:100%; min-width:0; }
+  #cd-unit, #cd-action, #sc-unit, #sc-action { width:100%; }
+  .input-with-suffix { display:flex; align-items:center; gap:8px; }
+  .input-with-suffix input { width:90px; }
+  .input-with-suffix span { color:var(--muted); font-size:.9rem; }
+  .timer-form > button { grid-column:2; justify-self:start; }
+  .day-picker { display:contents; }
+  .days { display:flex; gap:6px; flex-wrap:wrap; margin:0; }
   .days label { display:flex; align-items:center; gap:4px; font-size:.85rem;
                 background:var(--btn); border-radius:8px; padding:6px 8px; }
+  #schedule-section .timer-form > button { margin-top:4px; }
   .all { width:100%; margin-top:6px; }
   .timer { display:flex; justify-content:space-between; align-items:center;
            gap:10px; padding:10px 0; border-top:1px solid var(--line); }
