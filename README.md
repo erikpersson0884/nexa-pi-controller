@@ -47,6 +47,7 @@ This repository contains **only the controller app**. It requires a 433 MHz ASK/
 - Weekly schedules (time + days), which can be disabled or deleted
 - Timers, outlets and last-known states are saved to disk and survive restarts
 - Runs directly with Python or as a Docker container
+- Docker runs with Gunicorn as the production WSGI server
 
 # Getting started
 
