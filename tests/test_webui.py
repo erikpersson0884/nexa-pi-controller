@@ -40,7 +40,7 @@ class WebUiTestCase(unittest.TestCase):
         self.assertIn('id="pair-modal"', html)
         self.assertIn('id="pair-name"', html)
         self.assertIn('>Pair</button>', html)
-        self.assertIn('function pairOutlet(event)', html)
+        self.assertIn('<script src="/static/app.js"></script>', html)
 
     def test_homepage_contains_csrf_token_for_api_requests(self):
         response = self.client.get("/")
@@ -52,19 +52,23 @@ class WebUiTestCase(unittest.TestCase):
 
         response = self.client.get("/")
 
+        self.assertEqual(response.status_code, 200)
+        with self.client.get("/static/app.js") as js_response:
+            app_js = js_response.get_data(as_text=True)
         self.assertIn(
             'No outlets configured',
-            response.get_data(as_text=True),
+            app_js,
         )
         self.assertIn(
             'Put a Nexa outlet in learning mode, then click "Add outlet" '
             'to pair it.',
-            response.get_data(as_text=True),
+            app_js,
         )
-        self.assertIn('Pair an outlet to set timers', response.get_data(as_text=True))
+        page = response.get_data(as_text=True)
+        self.assertIn('Pair an outlet to set timers', page)
         self.assertIn(
             'Add an outlet first, then you can create countdowns and weekly schedules.',
-            response.get_data(as_text=True),
+            page,
         )
 
     def test_mutating_requests_require_a_csrf_token(self):
@@ -83,6 +87,14 @@ class WebUiTestCase(unittest.TestCase):
                 headers={"X-CSRFToken": token},
             )
         self.assertEqual(accepted.status_code, 200)
+
+    def test_app_assets_are_served(self):
+        with self.client.get("/static/app.css") as css:
+            self.assertEqual(css.status_code, 200)
+            self.assertIn(b"--bg:", css.data)
+        with self.client.get("/static/app.js") as js:
+            self.assertEqual(js.status_code, 200)
+            self.assertIn(b"function pairOutlet(event)", js.data)
 
     def test_logo_assets_are_served(self):
         with self.client.get("/static/logo.svg") as svg:

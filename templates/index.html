@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/static/logo.svg">
+<link rel="icon" type="image/png" href="/static/logo.png">
+<link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<title>Nexa Control</title>
+
+</head>
+<body>
+<main>
+  <h1>Nexa Control</h1>
+  <div id="list"></div>
+  <button class="all" onclick="addOutlet()">Add outlet</button>
+  <button class="all" onclick="allOff()">All off</button>
+
+  <details class="timers">
+    <summary>Timers</summary>
+    <div class="panel timer-panel">
+      <div id="timer-empty" class="empty timer-empty" hidden>
+        <div class="empty-title">Pair an outlet to set timers</div>
+        <div>Add an outlet first, then you can create countdowns and weekly schedules.</div>
+      </div>
+      <section id="countdown-section" class="timer-section">
+        <h3>Countdown</h3>
+        <div class="row">
+          <select id="cd-unit"></select>
+          <select id="cd-action">
+            <option value="off">Turn off</option>
+            <option value="on">Turn on</option>
+          </select>
+          <span>in</span>
+          <input id="cd-min" type="number" min="1" max="1440" value="30">
+          <span>min</span>
+          <button onclick="addCountdown()">Start</button>
+        </div>
+      </section>
+
+      <section id="schedule-section" class="timer-section">
+        <h3>Weekly schedule</h3>
+        <div class="row">
+          <select id="sc-unit"></select>
+          <select id="sc-action">
+            <option value="on">Turn on</option>
+            <option value="off">Turn off</option>
+          </select>
+          <span>at</span>
+          <input id="sc-time" type="time" value="18:00">
+        </div>
+        <div class="days" id="sc-days"></div>
+        <button onclick="addSchedule()">Add schedule</button>
+      </section>
+
+      <section class="timer-section active-timers">
+        <h3>Active timers</h3>
+        <div id="timer-list"></div>
+      </section>
+    </div>
+  </details>
+
+  <div id="msg"></div>
+</main>
+<div id="pair-modal" class="modal" hidden>
+  <form class="modal-card" onsubmit="pairOutlet(event)">
+    <h2>Pair outlet</h2>
+    <p>Put the outlet in learning mode, then click Pair.</p>
+    <label for="pair-name">Outlet name</label>
+    <input id="pair-name" type="text" required maxlength="80">
+    <div class="modal-actions">
+      <button type="button" onclick="closePairModal()">Cancel</button>
+      <button type="submit" class="primary">Pair</button>
+    </div>
+  </form>
+</div>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
