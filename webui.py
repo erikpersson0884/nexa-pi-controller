@@ -197,6 +197,8 @@ PAGE = """<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/static/logo.svg">
+<link rel="icon" type="image/png" href="/static/logo.png">
 <title>Nexa Control</title>
 <style>
   :root { --bg:#f4f5f7; --card:#fff; --text:#1c1e21; --muted:#6b7280;
