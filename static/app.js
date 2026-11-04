@@ -101,7 +101,9 @@ function renderDevices() {
 }
 
 function showDeviceMenu(card, device) {
+  const existing = card.querySelector('.menu');
   document.querySelectorAll('.menu').forEach(menu => menu.remove());
+  if (existing) return;
   const menu = el('div', 'menu');
   const rename = el('button', '', 'Rename');
   rename.onclick = () => renameDevice(device);
@@ -360,7 +362,15 @@ document.querySelectorAll('[data-days]').forEach(button => button.onclick = () =
   setDays(days);
 });
 document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') {
+    document.querySelectorAll('.menu').forEach(menu => menu.remove());
+  }
   if (event.key === 'Escape') document.querySelectorAll('.overlay:not([hidden])').forEach(sheet => closeOverlay(sheet.id));
+});
+document.addEventListener('click', event => {
+  if (!event.target.closest('.menu') && !event.target.closest('.menu-button')) {
+    document.querySelectorAll('.menu').forEach(menu => menu.remove());
+  }
 });
 document.querySelectorAll('.overlay').forEach(overlay => {
   overlay.onclick = event => { if (event.target === overlay) closeOverlay(overlay.id); };
