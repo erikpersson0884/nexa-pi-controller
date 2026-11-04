@@ -256,6 +256,18 @@ PAGE = """<!doctype html>
   .timer.disabled .desc { opacity:.5; }
   .empty { color:var(--muted); font-size:.9rem; padding:12px 0 14px; line-height:1.5; }
   .empty-title { color:var(--text); font-weight:600; margin-bottom:2px; }
+  .modal { position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+           padding:20px; background:rgba(0,0,0,.45); }
+  .modal[hidden] { display:none; }
+  .modal-card { width:100%; max-width:380px; background:var(--card); border-radius:14px;
+                padding:20px; box-shadow:0 12px 30px rgba(0,0,0,.2); }
+  .modal-card h2 { margin:0 0 8px; }
+  .modal-card p { color:var(--muted); font-size:.9rem; line-height:1.5; margin:0 0 16px; }
+  .modal-card label { display:block; font-size:.9rem; font-weight:600; margin-bottom:6px; }
+  .modal-card input { width:100%; font-size:1rem; padding:10px; border-radius:10px;
+                      color:var(--text); border:1px solid var(--line); background:var(--bg); }
+  .modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:18px; }
+  button.primary { background:var(--on); color:#fff; }
   #msg { text-align:center; color:var(--muted); font-size:.85rem;
          margin-top:10px; min-height:1.2em; }
 </style>
@@ -309,6 +321,18 @@ PAGE = """<!doctype html>
 
   <div id="msg"></div>
 </main>
+<div id="pair-modal" class="modal" hidden>
+  <form class="modal-card" onsubmit="pairOutlet(event)">
+    <h2>Pair outlet</h2>
+    <p>Put the outlet in learning mode, then click Pair.</p>
+    <label for="pair-name">Outlet name</label>
+    <input id="pair-name" type="text" required maxlength="80">
+    <div class="modal-actions">
+      <button type="button" onclick="closePairModal()">Cancel</button>
+      <button type="submit" class="primary">Pair</button>
+    </div>
+  </form>
+</div>
 <script>
 const DAY_NAMES = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 let devices = [];
@@ -392,14 +416,23 @@ function fillSelects() {
 }
 
 async function addOutlet() {
-  const name = prompt('Name for the new outlet:', 'Outlet ' + (devices.length + 1));
-  if (name === null) return;
-  if (!name.trim()) {
-    setMsg('Please enter a name');
-    return;
-  }
-  if (!confirm('Put the outlet in learning mode (press its learn button), then click OK to pair it.')) return;
+  const modal = document.getElementById('pair-modal');
+  const name = document.getElementById('pair-name');
+  name.value = 'Outlet ' + (devices.length + 1);
+  modal.hidden = false;
+  name.focus();
+  name.select();
+}
 
+function closePairModal() {
+  document.getElementById('pair-modal').hidden = true;
+}
+
+async function pairOutlet(event) {
+  event.preventDefault();
+  const name = document.getElementById('pair-name').value.trim();
+  if (!name) return;
+  closePairModal();
   setMsg('Pairing...');
   try {
     await api('POST', '/api/pair', {name: name.trim()});

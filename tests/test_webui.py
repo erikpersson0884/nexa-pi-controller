@@ -37,6 +37,10 @@ class WebUiTestCase(unittest.TestCase):
         self.assertIn('<details class="timers">', html)
         self.assertIn("<h3>Weekly schedule</h3>", html)
         self.assertNotIn('<details class="timers" open>', html)
+        self.assertIn('id="pair-modal"', html)
+        self.assertIn('id="pair-name"', html)
+        self.assertIn('>Pair</button>', html)
+        self.assertIn('function pairOutlet(event)', html)
 
     def test_homepage_contains_csrf_token_for_api_requests(self):
         response = self.client.get("/")
