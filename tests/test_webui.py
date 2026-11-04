@@ -61,6 +61,11 @@ class WebUiTestCase(unittest.TestCase):
             'to pair it.',
             response.get_data(as_text=True),
         )
+        self.assertIn('Pair an outlet to set timers', response.get_data(as_text=True))
+        self.assertIn(
+            'Add an outlet first, then you can create countdowns and weekly schedules.',
+            response.get_data(as_text=True),
+        )
 
     def test_mutating_requests_require_a_csrf_token(self):
         self.client.application.config["WTF_CSRF_ENABLED"] = True

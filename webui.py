@@ -256,6 +256,7 @@ PAGE = """<!doctype html>
   .timer.disabled .desc { opacity:.5; }
   .empty { color:var(--muted); font-size:.9rem; padding:12px 0 14px; line-height:1.5; }
   .empty-title { color:var(--text); font-weight:600; margin-bottom:2px; }
+  .timer-empty { border-bottom:1px solid var(--line); margin-bottom:14px; padding-top:0; }
   .modal { position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
            padding:20px; background:rgba(0,0,0,.45); }
   .modal[hidden] { display:none; }
@@ -282,7 +283,11 @@ PAGE = """<!doctype html>
   <details class="timers">
     <summary>Timers</summary>
     <div class="panel timer-panel">
-      <section class="timer-section">
+      <div id="timer-empty" class="empty timer-empty" hidden>
+        <div class="empty-title">Pair an outlet to set timers</div>
+        <div>Add an outlet first, then you can create countdowns and weekly schedules.</div>
+      </div>
+      <section id="countdown-section" class="timer-section">
         <h3>Countdown</h3>
         <div class="row">
           <select id="cd-unit"></select>
@@ -297,7 +302,7 @@ PAGE = """<!doctype html>
         </div>
       </section>
 
-      <section class="timer-section">
+      <section id="schedule-section" class="timer-section">
         <h3>Weekly schedule</h3>
         <div class="row">
           <select id="sc-unit"></select>
@@ -368,6 +373,15 @@ async function loadDevices() {
   devices = await api('GET', '/api/devices');
   renderDevices();
   fillSelects();
+  updateTimerAvailability();
+}
+
+function updateTimerAvailability() {
+  const hasDevices = devices.length > 0;
+  document.getElementById('timer-empty').hidden = hasDevices;
+  for (const id of ['countdown-section', 'schedule-section']) {
+    document.getElementById(id).hidden = !hasDevices;
+  }
 }
 
 function renderDevices() {
