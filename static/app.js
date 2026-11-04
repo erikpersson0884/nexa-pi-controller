@@ -5,6 +5,9 @@ let timerUnit = null;
 let editing = null;
 let editingDevice = null;
 let toastTimer;
+let reorderMode = false;
+let reorderDevices = [];
+let dragged = null;
 
 async function api(method, url, body) {
   const options = {method};
@@ -59,7 +62,13 @@ function renderDevices() {
   const list = document.getElementById('outlet-list');
   while (list.firstChild) list.removeChild(list.firstChild);
   const onCount = devices.filter(d => d.state === true).length;
-  document.getElementById('summary').textContent = `${devices.length} outlet${devices.length === 1 ? '' : 's'} · ${onCount} on`;
+  document.getElementById('page-title').textContent = reorderMode ? 'Reorder' : 'Nexa Control';
+  document.getElementById('summary').textContent = reorderMode
+    ? 'Drag the handle or use the arrows'
+    : `${devices.length} outlet${devices.length === 1 ? '' : 's'} · ${onCount} on`;
+  document.getElementById('all-off').hidden = reorderMode;
+  document.getElementById('reorder-done').hidden = !reorderMode;
+  document.getElementById('add-outlet').hidden = reorderMode;
   if (!devices.length) {
     const empty = el('div', 'empty');
     empty.append(el('strong', '', 'No outlets configured'));
@@ -67,8 +76,26 @@ function renderDevices() {
     list.append(empty);
     return;
   }
-  devices.forEach(device => {
+  const visibleDevices = reorderMode ? reorderDevices : devices;
+  visibleDevices.forEach((device, index) => {
     const card = el('article', 'outlet-card');
+    card.dataset.unit = device.unit;
+    if (reorderMode) {
+      card.classList.add('reorder-card');
+      const name = el('div', 'reorder-name', device.name);
+      const controls = el('div', 'reorder-controls');
+      const up = reorderButton('⌃', `Move ${device.name} up`, index === 0,
+        () => moveReorderDevice(index, -1));
+      const down = reorderButton('⌄', `Move ${device.name} down`,
+        index === visibleDevices.length - 1, () => moveReorderDevice(index, 1));
+      const handle = reorderButton('⠿', `Drag ${device.name}`, false);
+      handle.classList.add('drag-handle');
+      handle.addEventListener('pointerdown', event => startDragging(event, card, index));
+      controls.append(up, down, handle);
+      card.append(name, controls);
+      list.append(card);
+      return;
+    }
     const head = el('div', 'outlet-head');
     const info = el('div');
     info.append(el('h2', 'outlet-name', device.name));
@@ -100,6 +127,119 @@ function renderDevices() {
   });
 }
 
+function reorderButton(text, label, disabled, onclick) {
+  const button = el('button', '', text);
+  button.type = 'button';
+  button.setAttribute('aria-label', label);
+  button.disabled = disabled;
+  button.onclick = onclick;
+  return button;
+}
+
+function announceReorder(device, index) {
+  document.getElementById('reorder-announcement').textContent =
+    `${device.name} moved to position ${index + 1} of ${reorderDevices.length}`;
+}
+
+function moveReorderDevice(index, direction) {
+  const target = index + direction;
+  if (target < 0 || target >= reorderDevices.length) return;
+  const moved = reorderDevices[index];
+  [reorderDevices[index], reorderDevices[target]] =
+    [reorderDevices[target], reorderDevices[index]];
+  renderDevices();
+  announceReorder(moved, target);
+  const button = document.querySelector(`[data-unit="${moved.unit}"] .reorder-controls button`);
+  if (button) button.focus();
+}
+
+function enterReorderMode(device) {
+  reorderMode = true;
+  reorderDevices = devices.map(device => ({...device}));
+  renderDevices();
+}
+
+async function leaveReorderMode(save) {
+  if (!reorderMode) return;
+  if (!save) {
+    reorderMode = false;
+    reorderDevices = [];
+    renderDevices();
+    return;
+  }
+  try {
+    await api('PUT', '/api/devices/order', {order: reorderDevices.map(device => device.unit)});
+    reorderMode = false;
+    reorderDevices = [];
+    await refresh();
+    showToast('Order saved');
+  } catch (error) {
+    showToast(`Failed: ${error.message}`);
+  }
+}
+
+function updateDragTransforms() {
+  if (!dragged) return;
+  const cards = [...document.querySelectorAll('.reorder-card')];
+  cards.forEach((card, index) => {
+    const offset = index === dragged.index ? 0 :
+      (dragged.placeholderIndex - dragged.index) * (index >= Math.min(dragged.index, dragged.placeholderIndex) &&
+      index <= Math.max(dragged.index, dragged.placeholderIndex) ? (index > dragged.index ? -1 : 1) : 0);
+    if (card !== dragged.card) {
+      card.style.transform = `translateY(${offset * (dragged.height + 12)}px)`;
+    }
+  });
+}
+
+function finishDragging(cancelled = false) {
+  if (!dragged) return;
+  const {card, index, placeholderIndex, pointerId} = dragged;
+  card.releasePointerCapture?.(pointerId);
+  if (!cancelled && placeholderIndex !== index) {
+    const [moved] = reorderDevices.splice(index, 1);
+    reorderDevices.splice(placeholderIndex, 0, moved);
+    announceReorder(moved, placeholderIndex);
+  }
+  dragged.placeholder?.remove();
+  dragged = null;
+  renderDevices();
+}
+
+function startDragging(event, card, index) {
+  if (!reorderMode || event.button !== 0) return;
+  event.preventDefault();
+  const height = card.offsetHeight;
+  const placeholder = el('div', 'reorder-placeholder');
+  placeholder.style.height = `${height}px`;
+  card.after(placeholder);
+  dragged = {
+    card, index, placeholderIndex: index, height, pointerId: event.pointerId,
+    startY: event.clientY, placeholder
+  };
+  card.classList.add('dragging');
+  card.setPointerCapture(event.pointerId);
+  const move = moveEvent => {
+    if (!dragged) return;
+    dragged.card.style.transform =
+      `translateY(${moveEvent.clientY - dragged.startY}px)`;
+    const edge = 60;
+    if (moveEvent.clientY < edge) window.scrollBy(0, -8);
+    else if (moveEvent.clientY > window.innerHeight - edge) window.scrollBy(0, 8);
+    const cards = [...document.querySelectorAll('.reorder-card:not(.dragging)')];
+    let target = index;
+    cards.forEach((other, otherIndex) => {
+      if (moveEvent.clientY > other.getBoundingClientRect().top + other.offsetHeight / 2) {
+        target = otherIndex + (otherIndex >= index ? 1 : 0);
+      }
+    });
+    dragged.placeholderIndex = Math.max(0, Math.min(reorderDevices.length - 1, target));
+    updateDragTransforms();
+  };
+  card.onpointermove = move;
+  card.onpointerup = () => finishDragging();
+  card.onpointercancel = () => finishDragging(true);
+}
+
 function showDeviceMenu(card, device) {
   const existing = card.querySelector('.menu');
   document.querySelectorAll('.menu').forEach(menu => menu.remove());
@@ -109,7 +249,13 @@ function showDeviceMenu(card, device) {
   rename.onclick = () => renameDevice(device);
   const remove = el('button', 'danger', 'Remove');
   remove.onclick = () => removeDevice(device);
-  menu.append(rename, remove);
+  menu.append(rename);
+  if (devices.length > 1) {
+    const reorder = el('button', '', 'Reorder outlets');
+    reorder.onclick = () => enterReorderMode(device);
+    menu.append(reorder);
+  }
+  menu.append(remove);
   card.append(menu);
 }
 
@@ -329,12 +475,14 @@ async function pairOutlet(event) {
 }
 
 async function refreshTimers() {
+  if (reorderMode) return;
   timerData = await api('GET', '/api/timers');
   renderDevices();
   if (!document.getElementById('timer-sheet').hidden) renderTimerSheet();
 }
 
 async function refresh() {
+  if (reorderMode) return;
   devices = await api('GET', '/api/devices');
   timerData = await api('GET', '/api/timers');
   renderDevices();
@@ -343,6 +491,7 @@ async function refresh() {
 
 document.getElementById('add-outlet').onclick = openPairModal;
 document.getElementById('all-off').onclick = allOff;
+document.getElementById('reorder-done').onclick = () => leaveReorderMode(true);
 document.getElementById('pair-form').onsubmit = pairOutlet;
 document.getElementById('rename-form').onsubmit = saveDeviceName;
 document.getElementById('confirm-remove').onclick = confirmRemoveDevice;
@@ -362,6 +511,10 @@ document.querySelectorAll('[data-days]').forEach(button => button.onclick = () =
   setDays(days);
 });
 document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && reorderMode) {
+    leaveReorderMode(false);
+    return;
+  }
   if (event.key === 'Escape') {
     document.querySelectorAll('.menu').forEach(menu => menu.remove());
   }

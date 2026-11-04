@@ -165,6 +165,25 @@ class WebUiTestCase(unittest.TestCase):
             {"unit": 0, "name": "Test outlet", "state": True},
         ])
 
+    def test_device_order_can_be_updated(self):
+        webui.configured_devices[:] = [
+            {"unit": 0, "name": "First"},
+            {"unit": 1, "name": "Second"},
+        ]
+        with patch.object(webui, "save_devices") as save_devices:
+            response = self.client.put(
+                "/api/devices/order", json={"order": [1, 0]}
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([d["unit"] for d in webui.configured_devices], [1, 0])
+        save_devices.assert_called_once_with(webui.configured_devices)
+
+    def test_device_order_rejects_invalid_units(self):
+        response = self.client.put("/api/devices/order", json={"order": [1]})
+        self.assertEqual(response.status_code, 400)
+        response = self.client.put("/api/devices/order", json={"order": [0, 0]})
+        self.assertEqual(response.status_code, 400)
+
     def test_switch_rejects_unknown_units_and_actions(self):
         self.assertEqual(self.client.post("/api/9/on").status_code, 400)
         self.assertEqual(self.client.post("/api/0/toggle").status_code, 400)

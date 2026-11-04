@@ -17,13 +17,15 @@
 <main>
   <header class="topbar">
     <div>
-      <h1>Nexa Control</h1>
+      <h1 id="page-title">Nexa Control</h1>
       <p id="summary" class="summary">0 outlets · 0 on</p>
     </div>
     <button id="all-off" class="secondary" type="button">All off</button>
+    <button id="reorder-done" class="primary" type="button" hidden>Done</button>
   </header>
   <section id="outlet-list" aria-live="polite"></section>
   <button id="add-outlet" class="add-card" type="button">＋ Add outlet</button>
+  <div id="reorder-announcement" class="sr-only" aria-live="polite"></div>
 </main>
 
 <div id="pair-modal" class="overlay" hidden>

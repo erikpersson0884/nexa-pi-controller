@@ -180,6 +180,27 @@ def device_list():
     return jsonify(devices)
 
 
+@app.put("/api/devices/order")
+def update_device_order():
+    data = request.get_json(silent=True) or {}
+    order = data.get("order")
+    current_units = [device["unit"] for device in configured_devices]
+    if not isinstance(order, list):
+        return jsonify(error="order must be a list"), 400
+    if any(not isinstance(unit, int) for unit in order):
+        return jsonify(error="order must contain integer unit numbers"), 400
+    if len(order) != len(current_units):
+        return jsonify(error="order must contain every configured outlet exactly once"), 400
+    if len(set(order)) != len(order):
+        return jsonify(error="order must not contain duplicate units"), 400
+    if set(order) != set(current_units):
+        return jsonify(error="order contains an unknown or missing unit"), 400
+    devices_by_unit = {device["unit"]: device for device in configured_devices}
+    configured_devices[:] = [devices_by_unit[unit] for unit in order]
+    save_devices(configured_devices)
+    return jsonify(ok=True)
+
+
 @app.patch("/api/devices/<int:unit>")
 def rename_device(unit):
     device = next((d for d in configured_devices if d["unit"] == unit), None)
