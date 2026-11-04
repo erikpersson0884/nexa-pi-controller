@@ -39,6 +39,31 @@
   </form>
 </div>
 
+<div id="rename-modal" class="overlay" hidden>
+  <form id="rename-form" class="dialog">
+    <button class="close-button" type="button" data-close="rename-modal" aria-label="Close">×</button>
+    <h2>Rename outlet</h2>
+    <label for="rename-name">Outlet name</label>
+    <input id="rename-name" type="text" maxlength="80" required>
+    <div class="dialog-actions">
+      <button class="secondary" type="button" data-close="rename-modal">Cancel</button>
+      <button class="primary" type="submit">Save</button>
+    </div>
+  </form>
+</div>
+
+<div id="remove-modal" class="overlay" hidden>
+  <div class="dialog">
+    <button class="close-button" type="button" data-close="remove-modal" aria-label="Close">×</button>
+    <h2>Remove outlet?</h2>
+    <p id="remove-message" class="muted"></p>
+    <div class="dialog-actions">
+      <button class="secondary" type="button" data-close="remove-modal">Cancel</button>
+      <button id="confirm-remove" class="danger" type="button">Remove</button>
+    </div>
+  </div>
+</div>
+
 <div id="timer-sheet" class="overlay sheet-overlay" hidden>
   <section class="sheet" aria-labelledby="timer-sheet-title">
     <div class="sheet-handle"></div>

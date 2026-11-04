@@ -39,6 +39,8 @@ class WebUiTestCase(unittest.TestCase):
         self.assertIn('id="editor-sheet"', html)
         self.assertIn('id="pair-modal"', html)
         self.assertIn('id="pair-name"', html)
+        self.assertIn('id="rename-modal"', html)
+        self.assertIn('id="remove-modal"', html)
         self.assertIn('>Pair</button>', html)
         self.assertIn('<script src="/static/app.js"></script>', html)
 

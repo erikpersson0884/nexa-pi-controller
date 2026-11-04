@@ -3,6 +3,7 @@ let devices = [];
 let timerData = {countdowns: [], schedules: []};
 let timerUnit = null;
 let editing = null;
+let editingDevice = null;
 let toastTimer;
 
 async function api(method, url, body) {
@@ -40,6 +41,7 @@ function closeOverlay(id) {
   document.getElementById(id).hidden = true;
   if (id === 'timer-sheet') timerUnit = null;
   if (id === 'editor-sheet') editing = null;
+  if (id === 'rename-modal' || id === 'remove-modal') editingDevice = null;
 }
 
 function timerSummary(unit) {
@@ -110,19 +112,38 @@ function showDeviceMenu(card, device) {
 }
 
 async function renameDevice(device) {
-  const name = window.prompt('New outlet name:', device.name);
-  if (name === null || !name.trim()) return;
+  editingDevice = device;
+  const input = document.getElementById('rename-name');
+  input.value = device.name;
+  document.getElementById('rename-modal').hidden = false;
+  input.focus();
+  input.select();
+}
+
+async function saveDeviceName(event) {
+  event.preventDefault();
+  const name = document.getElementById('rename-name').value.trim();
+  if (!name || !editingDevice) return;
   try {
-    await api('PATCH', `/api/devices/${device.unit}`, {name: name.trim()});
+    await api('PATCH', `/api/devices/${editingDevice.unit}`, {name});
+    closeOverlay('rename-modal');
     showToast('Outlet renamed');
     await refresh();
   } catch (error) { showToast(error.message); }
 }
 
 async function removeDevice(device) {
-  if (!window.confirm(`Remove ${device.name} and its timers?`)) return;
+  editingDevice = device;
+  document.getElementById('remove-message').textContent =
+    `Remove ${device.name} and all of its timers?`;
+  document.getElementById('remove-modal').hidden = false;
+}
+
+async function confirmRemoveDevice() {
+  if (!editingDevice) return;
   try {
-    await api('DELETE', `/api/devices/${device.unit}`);
+    await api('DELETE', `/api/devices/${editingDevice.unit}`);
+    closeOverlay('remove-modal');
     showToast('Outlet removed');
     await refresh();
   } catch (error) { showToast(error.message); }
@@ -318,6 +339,8 @@ async function refresh() {
 document.getElementById('add-outlet').onclick = openPairModal;
 document.getElementById('all-off').onclick = allOff;
 document.getElementById('pair-form').onsubmit = pairOutlet;
+document.getElementById('rename-form').onsubmit = saveDeviceName;
+document.getElementById('confirm-remove').onclick = confirmRemoveDevice;
 document.getElementById('timer-form').onsubmit = saveTimer;
 document.getElementById('delete-timer').onclick = deleteTimer;
 document.getElementById('sheet-add-timer').onclick = () => openEditor('countdown');

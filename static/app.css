@@ -19,7 +19,7 @@ button { min-height:44px; border:0; border-radius:10px; padding:10px 14px;
 button:disabled { opacity:.55; cursor:wait; }
 button.primary { background:var(--primary); color:#fff; }
 button.secondary { background:var(--btn); }
-button.danger { color:var(--danger); background:transparent; }
+button.danger { color:#fff; background:var(--danger); }
 .topbar { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; }
 h1 { margin:0; font-size:1.45rem; }
 h2 { margin:0 0 16px; font-size:1.2rem; }
@@ -93,3 +93,4 @@ input[type=text], input[type=number], input[type=time] { width:100%; min-height:
 .menu { position:absolute; z-index:2; top:56px; right:12px; display:flex; flex-direction:column;
         min-width:130px; padding:6px; border-radius:10px; background:var(--card); box-shadow:var(--shadow); }
 .menu button { min-height:40px; text-align:left; background:transparent; }
+.menu button.danger { color:var(--danger); background:transparent; }
