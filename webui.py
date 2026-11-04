@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime
 
 from argon2 import PasswordHasher
-from argon2.exceptions import InvalidHashError, VerifyMismatchError
+from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
 from flask import Flask, jsonify, render_template, request, send_from_directory
 from flask import redirect, session, url_for
 from flask_wtf.csrf import CSRFProtect
@@ -121,7 +121,7 @@ def login_submit():
             username == AUTH_USERNAME
             and password_hasher.verify(AUTH_PASSWORD_HASH, password)
         )
-    except (VerifyMismatchError, InvalidHashError):
+    except (InvalidHashError, VerificationError, VerifyMismatchError):
         valid = False
     if not valid:
         return render_template("login.html", error="Invalid username or password"), 401

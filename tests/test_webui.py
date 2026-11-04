@@ -82,6 +82,16 @@ class WebUiTestCase(unittest.TestCase):
         with self.client.session_transaction() as session:
             self.assertTrue(session["authenticated"])
 
+    def test_login_rejects_malformed_password_hash(self):
+        with self.client.session_transaction() as session:
+            session.clear()
+        with patch.object(webui, "AUTH_PASSWORD_HASH", "$argon2id=invalid"):
+            response = self.client.post(
+                "/login",
+                data={"username": "admin", "password": "test-password"},
+            )
+        self.assertEqual(response.status_code, 401)
+
     def test_homepage_explains_when_no_outlets_have_been_added(self):
         webui.configured_devices = []
 
