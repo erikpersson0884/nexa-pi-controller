@@ -34,6 +34,9 @@ class WebUiTestCase(unittest.TestCase):
             '<link rel="icon" type="image/png" href="/static/logo.png">',
             html,
         )
+        self.assertIn('<details class="timers">', html)
+        self.assertIn("<h3>Weekly schedule</h3>", html)
+        self.assertNotIn('<details class="timers" open>', html)
 
     def test_homepage_contains_csrf_token_for_api_requests(self):
         response = self.client.get("/")

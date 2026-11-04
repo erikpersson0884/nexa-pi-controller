@@ -226,6 +226,15 @@ PAGE = """<!doctype html>
           margin-bottom:12px; display:flex; align-items:center;
           justify-content:space-between; gap:12px; }
   .panel { background:var(--card); border-radius:14px; padding:16px; }
+  .timers { margin-top:20px; }
+  .timers summary { cursor:pointer; color:var(--muted); font-size:.95rem;
+                    font-weight:600; padding:4px 0; }
+  .timers summary::marker { color:var(--muted); }
+  .timer-panel { margin-top:10px; padding:14px; }
+  .timer-section + .timer-section { border-top:1px solid var(--line);
+                                    margin-top:18px; padding-top:4px; }
+  .timer-section h3 { color:var(--text); margin-top:10px; }
+  .active-timers { margin-top:18px; }
   .name { font-weight:600; }
   .status { font-size:.85rem; color:var(--muted); }
   .status.on { color:var(--on); }
@@ -261,37 +270,45 @@ PAGE = """<!doctype html>
   <button class="all" onclick="addOutlet()">Add outlet</button>
   <button class="all" onclick="allOff()">All off</button>
 
-  <h2>Timers</h2>
-  <div class="panel">
-    <h3>Countdown</h3>
-    <div class="row">
-      <select id="cd-unit"></select>
-      <select id="cd-action">
-        <option value="off">Turn off</option>
-        <option value="on">Turn on</option>
-      </select>
-      <span>in</span>
-      <input id="cd-min" type="number" min="1" max="1440" value="30">
-      <span>min</span>
-      <button onclick="addCountdown()">Start</button>
-    </div>
+  <details class="timers">
+    <summary>Timers</summary>
+    <div class="panel timer-panel">
+      <section class="timer-section">
+        <h3>Countdown</h3>
+        <div class="row">
+          <select id="cd-unit"></select>
+          <select id="cd-action">
+            <option value="off">Turn off</option>
+            <option value="on">Turn on</option>
+          </select>
+          <span>in</span>
+          <input id="cd-min" type="number" min="1" max="1440" value="30">
+          <span>min</span>
+          <button onclick="addCountdown()">Start</button>
+        </div>
+      </section>
 
-    <h3>Schedule</h3>
-    <div class="row">
-      <select id="sc-unit"></select>
-      <select id="sc-action">
-        <option value="on">Turn on</option>
-        <option value="off">Turn off</option>
-      </select>
-      <span>at</span>
-      <input id="sc-time" type="time" value="18:00">
-    </div>
-    <div class="days" id="sc-days"></div>
-    <button onclick="addSchedule()">Add schedule</button>
+      <section class="timer-section">
+        <h3>Weekly schedule</h3>
+        <div class="row">
+          <select id="sc-unit"></select>
+          <select id="sc-action">
+            <option value="on">Turn on</option>
+            <option value="off">Turn off</option>
+          </select>
+          <span>at</span>
+          <input id="sc-time" type="time" value="18:00">
+        </div>
+        <div class="days" id="sc-days"></div>
+        <button onclick="addSchedule()">Add schedule</button>
+      </section>
 
-    <h3>Active timers</h3>
-    <div id="timer-list"></div>
-  </div>
+      <section class="timer-section active-timers">
+        <h3>Active timers</h3>
+        <div id="timer-list"></div>
+      </section>
+    </div>
+  </details>
 
   <div id="msg"></div>
 </main>
