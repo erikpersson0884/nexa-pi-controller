@@ -104,6 +104,19 @@ python3 -c "import base64; print(base64.b64encode(input('Hash: ').encode()).deco
 Set the generated value as `AUTH_PASSWORD_HASH_B64` and remove
 `AUTH_PASSWORD_HASH`. The Base64 value contains no `$` characters.
 
+For Portainer, the simplest option is to set the plaintext password directly
+as an environment variable. It contains no `$` interpolation-sensitive hash:
+
+```env
+AUTH_USERNAME=admin
+AUTH_PASSWORD=choose-a-long-unique-password
+```
+
+The application hashes this password with Argon2id in memory when it starts;
+the plaintext is not written to the data directory. Remove
+`AUTH_PASSWORD_HASH`, `AUTH_PASSWORD_HASH_B64`, and
+`AUTH_PASSWORD_HASH_FILE` when using `AUTH_PASSWORD`.
+
 Then install and run:
 
 ```sh
@@ -149,7 +162,8 @@ Create a `.env` file in the project directory for required secrets and local ove
 | `TZ` | system time zone | Time zone used by schedules (set it in Docker) |
 | `SECRET_KEY` | required | Stable random secret used to sign sessions and CSRF tokens |
 | `AUTH_USERNAME` | `admin` | Username required to sign in |
-| `AUTH_PASSWORD_HASH` | required | Argon2id hash of the login password; never store the plaintext password |
+| `AUTH_PASSWORD` | unset | Plaintext startup password; hashed in memory with Argon2id, useful for Portainer |
+| `AUTH_PASSWORD_HASH` | unset | Argon2id hash of the login password |
 | `AUTH_PASSWORD_HASH_B64` | unset | Base64-encoded Argon2id hash; recommended for Portainer stacks |
 | `COOKIE_SECURE` | `false` | Set to `true` when the app is served over HTTPS |
 

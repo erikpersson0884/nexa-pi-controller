@@ -31,6 +31,7 @@ REPEAT = config.REPEAT
 GPIO_MODE = config.GPIO_MODE
 SECRET_KEY = config.SECRET_KEY
 AUTH_USERNAME = config.AUTH_USERNAME
+AUTH_PASSWORD = config.AUTH_PASSWORD
 AUTH_PASSWORD_HASH = config.AUTH_PASSWORD_HASH
 PROJECT_DIR = config.PROJECT_DIR
 DATA_DIR = config.DATA_DIR
@@ -43,8 +44,6 @@ timer_lock = threading.Lock()   # protects the timers dict
 app = Flask(__name__)
 if not SECRET_KEY:
     raise RuntimeError("SECRET_KEY must be configured")
-if not AUTH_PASSWORD_HASH:
-    raise RuntimeError("AUTH_PASSWORD_HASH must be configured")
 app.config.update(
     SECRET_KEY=SECRET_KEY,
     SESSION_COOKIE_HTTPONLY=True,
@@ -54,6 +53,12 @@ app.config.update(
 csrf = CSRFProtect()
 csrf.init_app(app)
 password_hasher = PasswordHasher()
+if AUTH_PASSWORD:
+    AUTH_PASSWORD_HASH = password_hasher.hash(AUTH_PASSWORD)
+if not AUTH_PASSWORD_HASH:
+    raise RuntimeError(
+        "AUTH_PASSWORD or AUTH_PASSWORD_HASH must be configured"
+    )
 
 
 # ---------- Legacy-compatible storage/radio wrappers ----------

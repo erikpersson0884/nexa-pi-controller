@@ -15,8 +15,22 @@ REPEAT = 6
 GPIO_MODE = os.getenv("GPIO_MODE", "hardware").lower()
 SECRET_KEY = os.getenv("SECRET_KEY")
 AUTH_USERNAME = os.getenv("AUTH_USERNAME", "admin")
+AUTH_PASSWORD = os.getenv("AUTH_PASSWORD")
 AUTH_PASSWORD_HASH = os.getenv("AUTH_PASSWORD_HASH")
+AUTH_PASSWORD_HASH_FILE = os.getenv("AUTH_PASSWORD_HASH_FILE")
 AUTH_PASSWORD_HASH_B64 = os.getenv("AUTH_PASSWORD_HASH_B64")
+if AUTH_PASSWORD:
+    AUTH_PASSWORD_HASH = None
+    AUTH_PASSWORD_HASH_FILE = None
+    AUTH_PASSWORD_HASH_B64 = None
+elif AUTH_PASSWORD_HASH_FILE:
+    try:
+        with open(AUTH_PASSWORD_HASH_FILE, encoding="utf-8") as password_hash_file:
+            AUTH_PASSWORD_HASH = password_hash_file.read().strip()
+    except OSError as exc:
+        raise RuntimeError(
+            f"Unable to read AUTH_PASSWORD_HASH_FILE: {AUTH_PASSWORD_HASH_FILE}"
+        ) from exc
 if AUTH_PASSWORD_HASH_B64:
     try:
         AUTH_PASSWORD_HASH = base64.b64decode(
