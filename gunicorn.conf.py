@@ -6,9 +6,6 @@ errorlog = "-"
 
 
 def post_worker_init(worker):
-    import threading
-
     import webui
 
-    threading.Thread(target=webui.scheduler, daemon=True).start()
-    webui.start_receiver()
+    webui.start_background_services()

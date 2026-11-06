@@ -1,7 +1,9 @@
 """Nexa 433 MHz receiver and self-learning frame decoder."""
 
 import os
-import sys
+import logging
+import queue
+import threading
 import time
 
 os.environ.setdefault("LG_WD", "/tmp")
@@ -11,7 +13,7 @@ try:
 except ImportError:
     lgpio = None
 
-from config import CHIP, GPIO_MODE, RX_PIN
+from config import CHIP, GPIO_MODE, RX_PIN, TX_ID
 
 ON_BIT = os.getenv("ON_BIT", "1")
 
@@ -19,6 +21,7 @@ SYNC_MIN, SYNC_MAX = 2000, 3600
 HIGH_MIN, HIGH_MAX = 120, 800
 LOW_SPLIT = 800
 LOW_MAX = 2100
+logger = logging.getLogger(__name__)
 
 
 def decode_frame(bits):
@@ -83,13 +86,46 @@ class Decoder:
 
 class Receiver:
     def __init__(self, on_command):
-        self.on_command = on_command
+        self.handle_command = on_command
+        self.commands = queue.Queue()
+        self.worker = None
+        self.stop_event = threading.Event()
+        self.worker_lock = threading.Lock()
         self.decoder = Decoder(self.handle_frame)
         self.previous = None
         self.last_report = (None, 0.0)
         self.last_timestamp = None
         self.handle = None
         self.callback = None
+
+    def on_command(self, transmitter, group, on, unit):
+        self.commands.put((transmitter, group, on, unit))
+
+    def _start_worker(self):
+        with self.worker_lock:
+            if self.worker is not None and self.worker.is_alive():
+                return
+            self.stop_event.clear()
+            self.worker = threading.Thread(
+                target=self._work, name="nexa-receiver", daemon=True
+            )
+            self.worker.start()
+
+    def _work(self):
+        while not self.stop_event.is_set():
+            try:
+                command = self.commands.get(timeout=0.2)
+            except queue.Empty:
+                continue
+            if command is None:
+                break
+            try:
+                transmitter, group, on, unit = command
+                if transmitter == TX_ID:
+                    continue
+                self.handle_command(transmitter, group, on, unit)
+            except Exception:
+                logger.exception("Nexa receiver command handling failed")
 
     def handle_frame(self, bits):
         now = time.monotonic()
@@ -107,6 +143,10 @@ class Receiver:
             return
         self.on_command(*decode_frame(bits))
 
+    def simulate(self, transmitter, group, on, unit):
+        """Queue a decoded command for testing without radio hardware."""
+        self.on_command(transmitter, group, on, unit)
+
     def on_edge(self, _chip, _gpio, level, timestamp):
         if level not in (0, 1):
             return
@@ -117,6 +157,7 @@ class Receiver:
 
     def start(self):
         if GPIO_MODE != "hardware":
+            self._start_worker()
             return False
         if lgpio is None:
             raise RuntimeError(
@@ -134,6 +175,7 @@ class Receiver:
             lgpio.gpiochip_close(self.handle)
             self.handle = None
             raise
+        self._start_worker()
         print(f"Listening for Nexa commands on GPIO{RX_PIN}", flush=True)
         return True
 
@@ -144,3 +186,8 @@ class Receiver:
         if self.handle is not None:
             lgpio.gpiochip_close(self.handle)
             self.handle = None
+        self.stop_event.set()
+        self.commands.put(None)
+        if self.worker is not None and self.worker is not threading.current_thread():
+            self.worker.join(timeout=1)
+            self.worker = None

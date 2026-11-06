@@ -4,10 +4,13 @@
 
 import re
 import os
+import atexit
 import hmac
+import logging
 import threading
 import time
 import uuid
+from collections import deque
 from datetime import datetime
 
 from flask import Flask, jsonify, render_template, request, send_from_directory
@@ -19,6 +22,8 @@ import radio
 import receiver
 import scheduler as scheduler_module
 import storage
+
+logger = logging.getLogger(__name__)
 
 # Re-export configuration and legacy helpers for callers importing webui.
 PORT = config.PORT
@@ -68,6 +73,9 @@ state_lock = threading.Lock()
 last_fired = {}   # schedule id -> "YYYY-MM-DD HH:MM" (prevents double firing)
 last_sent = {}
 receiver_listener = None
+receiver_log = deque(maxlen=50)
+services_lock = threading.Lock()
+services_started = False
 
 def save_state(st):
     storage.save_state(st)
@@ -89,9 +97,17 @@ def apply(unit, on):
 
 
 def receive_command(remote, group, on, unit):
-    """Apply a command observed from any Nexa transmitter."""
-    del remote
+    """Apply and record a command observed from another Nexa transmitter."""
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    command = {
+        "time": timestamp,
+        "transmitter": remote,
+        "group": group,
+        "on": on,
+        "unit": unit,
+    }
     with state_lock:
+        receiver_log.append(command)
         units = (
             [device["unit"] for device in configured_devices]
             if group else [unit]
@@ -103,21 +119,84 @@ def receive_command(remote, group, on, unit):
                 changed = True
         if changed:
             save_state(state)
+    target = "ALL units" if group else f"unit {unit}"
+    logger.info(
+        "remote %s  %s  %s",
+        remote,
+        target,
+        "ON" if on else "OFF",
+    )
 
 
 def start_receiver():
     global receiver_listener
-    listener = receiver.Receiver(receive_command)
-    if listener.start():
-        receiver_listener = listener
-        return listener
-    return None
+    if receiver_listener is not None:
+        return receiver_listener
+    try:
+        listener = receiver.Receiver(receive_command)
+        listener.start()
+    except Exception as exc:
+        logger.warning("Nexa receiver unavailable; continuing without it: %s", exc)
+        if "listener" in locals():
+            try:
+                listener.stop()
+            except Exception:
+                logger.exception("Failed to clean up unavailable Nexa receiver")
+        return None
+    receiver_listener = listener
+    return listener
+
+
+def stop_receiver():
+    global receiver_listener
+    if receiver_listener is not None:
+        receiver_listener.stop()
+        receiver_listener = None
+
+
+def start_background_services():
+    global services_started
+    with services_lock:
+        if services_started:
+            return
+        services_started = True
+    threading.Thread(target=scheduler, name="nexa-scheduler", daemon=True).start()
+    start_receiver()
+    atexit.register(stop_receiver)
 
 
 def scheduler():
     return scheduler_module.scheduler(
         timers, apply, save_timers, timer_lock, last_fired
     )
+
+
+@app.get("/api/remote/log")
+def remote_log():
+    with state_lock:
+        return jsonify(list(receiver_log))
+
+
+if GPIO_MODE == "mock":
+    @app.post("/api/debug/remote")
+    def debug_remote():
+        data = request.get_json(silent=True) or {}
+        transmitter = data.get("transmitter")
+        group = data.get("group")
+        on = data.get("on")
+        unit = data.get("unit")
+        if (
+            not isinstance(transmitter, int)
+            or not isinstance(group, bool)
+            or not isinstance(on, bool)
+            or not isinstance(unit, int)
+            or not 0 <= unit <= 15
+        ):
+            return jsonify(error="invalid remote command"), 400
+        if receiver_listener is None:
+            return jsonify(error="receiver is not running"), 503
+        receiver_listener.simulate(transmitter, group, on, unit)
+        return jsonify(ok=True)
 
 
 # ---------- Web page ----------
@@ -452,6 +531,6 @@ def delete_schedule(sid):
 
 
 if __name__ == "__main__":
-    threading.Thread(target=scheduler, daemon=True).start()
-    start_receiver()
+    if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+        start_background_services()
     app.run(host=HOST, port=PORT)
