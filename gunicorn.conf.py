@@ -11,3 +11,4 @@ def post_worker_init(worker):
     import webui
 
     threading.Thread(target=webui.scheduler, daemon=True).start()
+    webui.start_receiver()

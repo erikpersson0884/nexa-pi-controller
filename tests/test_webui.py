@@ -165,6 +165,25 @@ class WebUiTestCase(unittest.TestCase):
             {"unit": 0, "name": "Test outlet", "state": True},
         ])
 
+    def test_received_command_updates_one_configured_outlet(self):
+        with patch.object(webui, "save_state") as save_state:
+            webui.receive_command(987654, False, True, 0)
+
+        self.assertTrue(webui.state[0])
+        save_state.assert_called_once_with(webui.state)
+
+    def test_received_group_command_updates_all_configured_outlets(self):
+        webui.configured_devices = [
+            {"unit": 0, "name": "First"},
+            {"unit": 1, "name": "Second"},
+        ]
+        with patch.object(webui, "save_state") as save_state:
+            webui.receive_command(987654, True, False, 15)
+
+        self.assertEqual(webui.state[0], False)
+        self.assertEqual(webui.state[1], False)
+        save_state.assert_called_once_with(webui.state)
+
     def test_device_order_can_be_updated(self):
         webui.configured_devices[:] = [
             {"unit": 0, "name": "First"},

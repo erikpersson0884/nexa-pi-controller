@@ -17,6 +17,7 @@ from flask_wtf.csrf import CSRFProtect
 
 import config
 import radio
+import receiver
 import scheduler as scheduler_module
 import storage
 
@@ -70,8 +71,10 @@ save_devices = storage.save_devices
 configured_devices = storage.load_devices()
 state = storage.load_state()
 timers = storage.load_timers()
+state_lock = threading.Lock()
 last_fired = {}   # schedule id -> "YYYY-MM-DD HH:MM" (prevents double firing)
 last_sent = {}
+receiver_listener = None
 
 def save_state(st):
     storage.save_state(st)
@@ -86,9 +89,36 @@ def transmit(on, unit, group=0):
 
 
 def apply(unit, on):
-    result = radio.apply(unit, on, state, save_state, transmit)
+    with state_lock:
+        result = radio.apply(unit, on, state, save_state, transmit)
     last_sent[unit] = datetime.now().strftime("%H:%M")
     return result
+
+
+def receive_command(remote, group, on, unit):
+    """Apply a command observed from any Nexa transmitter."""
+    del remote
+    with state_lock:
+        units = (
+            [device["unit"] for device in configured_devices]
+            if group else [unit]
+        )
+        changed = False
+        for received_unit in units:
+            if valid_unit(received_unit) and state.get(received_unit) != on:
+                state[received_unit] = on
+                changed = True
+        if changed:
+            save_state(state)
+
+
+def start_receiver():
+    global receiver_listener
+    listener = receiver.Receiver(receive_command)
+    if listener.start():
+        receiver_listener = listener
+        return listener
+    return None
 
 
 def scheduler():
@@ -406,4 +436,5 @@ def delete_schedule(sid):
 
 if __name__ == "__main__":
     threading.Thread(target=scheduler, daemon=True).start()
+    start_receiver()
     app.run(host=HOST, port=PORT)

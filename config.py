@@ -13,6 +13,7 @@ TX_ID = 12345678
 T = 260e-6
 REPEAT = 6
 GPIO_MODE = os.getenv("GPIO_MODE", "hardware").lower()
+RX_PIN = int(os.getenv("RX_PIN", 27))
 SECRET_KEY = os.getenv("SECRET_KEY")
 AUTH_USERNAME = os.getenv("AUTH_USERNAME", "admin")
 AUTH_PASSWORD = os.getenv("AUTH_PASSWORD")

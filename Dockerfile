@@ -7,7 +7,7 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 COPY webui.py /app/webui.py
-COPY config.py radio.py scheduler.py storage.py /app/
+COPY config.py radio.py receiver.py scheduler.py storage.py /app/
 COPY gunicorn.conf.py /app/
 COPY templates /app/templates
 COPY static /app/static

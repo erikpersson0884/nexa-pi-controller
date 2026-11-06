@@ -27,7 +27,7 @@ A small self-hosted web UI for controlling Nexa self-learning 433 MHz outlets fr
 
 Nexa Controller Pi lets you switch Nexa self-learning outlets from your phone or laptop without the original remote. A cheap 433 MHz transmitter module is wired to a Raspberry Pi 5, and a Python/Flask app generates the Nexa signal directly on a GPIO pin and serves a simple web page on your local network.
 
-433 MHz is one-way, so the page shows the **last command sent**, not the outlet's real state. If someone uses a physical remote, the page won't know.
+Nexa radio is one-way, but the app can listen for commands with a 433 MHz receiver and update the displayed state when a physical remote or another transmitter is used.
 
 This repository contains **only the controller app**. It requires a 433 MHz ASK/OOK transmitter module (FS1000A type) wired to the Pi, and outlets that support Nexa's self-learning protocol.
 
@@ -61,7 +61,7 @@ This repository contains **only the controller app**. It requires a 433 MHz ASK/
 ## Prerequisites
 
 - Raspberry Pi 5 running Raspberry Pi OS (Bookworm or newer)
-- A 433 MHz transmitter module (the 3-pin board, not the receiver)
+- A 433 MHz transmitter module and a 433 MHz receiver module
 - About 17 cm of solid wire for the antenna, soldered to the module's ANT pad
 - Nexa self-learning outlets
 - Python 3 with Flask, Flask-WTF, lgpio and python-dotenv, or Docker
@@ -75,6 +75,9 @@ Power off the Pi before connecting anything.
 | VCC | Pin 2 | 5 V |
 | GND | Pin 6 | Ground |
 | DATA | Pin 11 | GPIO17 |
+
+Connect the receiver DATA output to physical pin 13 (BCM GPIO27). The receiver
+is started automatically when the app runs in hardware mode.
 
 Check the labels printed on your module, because the pin order can vary between batches.
 
@@ -159,6 +162,7 @@ Create a `.env` file in the project directory for required secrets and local ove
 | `HOST` | `127.0.0.1` | Network interface to bind to. Use `0.0.0.0` only when the app must be reachable from other devices |
 | `DATA_DIR` | project `data/` folder (`/data` in Docker) | Where `nexa_state.json`, `nexa_devices.json` and `nexa_timers.json` are stored |
 | `GPIO_MODE` | `hardware` | Set to `mock` on a development computer without GPIO hardware. Pairing and switching are simulated |
+| `RX_PIN` | `27` | BCM GPIO input connected to the 433 MHz receiver DATA output (physical pin 13) |
 | `TZ` | system time zone | Time zone used by schedules (set it in Docker) |
 | `SECRET_KEY` | required | Stable random secret used to sign sessions and CSRF tokens |
 | `AUTH_USERNAME` | `admin` | Username required to sign in |
