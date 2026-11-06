@@ -34,6 +34,8 @@
     <h2>Pair outlet</h2>
     <label for="pair-name">Outlet name</label>
     <input id="pair-name" type="text" maxlength="80" required>
+    <label for="pair-unit">Outlet number</label>
+    <select id="pair-unit"></select>
     <ol class="instructions">
       <li>Put the outlet in learning mode.</li>
       <li>Press Pair.</li>
@@ -48,9 +50,11 @@
 <div id="rename-modal" class="overlay" hidden>
   <form id="rename-form" class="dialog">
     <button class="close-button" type="button" data-close="rename-modal" aria-label="Close">×</button>
-    <h2>Rename outlet</h2>
+    <h2>Edit outlet</h2>
     <label for="rename-name">Outlet name</label>
     <input id="rename-name" type="text" maxlength="80" required>
+    <label for="rename-unit">Outlet number</label>
+    <select id="rename-unit"></select>
     <div class="dialog-actions">
       <button class="secondary" type="button" data-close="rename-modal">Cancel</button>
       <button class="primary" type="submit">Save</button>

@@ -248,7 +248,7 @@ function showDeviceMenu(card, device) {
   document.querySelectorAll('.menu').forEach(menu => menu.remove());
   if (existing) return;
   const menu = el('div', 'menu');
-  const rename = el('button', '', 'Rename');
+  const rename = el('button', '', 'Edit');
   rename.onclick = () => renameDevice(device);
   const remove = el('button', 'danger', 'Remove');
   remove.onclick = () => removeDevice(device);
@@ -266,18 +266,33 @@ async function renameDevice(device) {
   editingDevice = device;
   const input = document.getElementById('rename-name');
   input.value = device.name;
+  populateUnitOptions('rename-unit', device.unit);
   document.getElementById('rename-modal').hidden = false;
   input.focus();
+}
+
+function populateUnitOptions(id, selectedUnit = null) {
+  const select = document.getElementById(id);
+  while (select.firstChild) select.removeChild(select.firstChild);
+  const used = new Set(devices.map(device => device.unit));
+  for (let unit = 0; unit < 16; unit += 1) {
+    if (used.has(unit) && unit !== selectedUnit) continue;
+    const option = el('option', '', `Unit ${unit}`);
+    option.value = unit;
+    option.selected = unit === selectedUnit;
+    select.append(option);
+  }
 }
 
 async function saveDeviceName(event) {
   event.preventDefault();
   const name = document.getElementById('rename-name').value.trim();
   if (!name || !editingDevice) return;
+  const unit = parseInt(document.getElementById('rename-unit').value, 10);
   try {
-    await api('PATCH', `/api/devices/${editingDevice.unit}`, {name});
+    await api('PATCH', `/api/devices/${editingDevice.unit}`, {name, unit});
     closeOverlay('rename-modal');
-    showToast('Outlet renamed');
+    showToast('Outlet updated');
     await refresh();
   } catch (error) { showToast(error.message); }
 }
@@ -461,6 +476,9 @@ async function deleteTimer() {
 function openPairModal() {
   const input = document.getElementById('pair-name');
   input.placeholder = `Outlet ${devices.length + 1}`;
+  populateUnitOptions('pair-unit', null);
+  const firstAvailable = document.getElementById('pair-unit').options[0];
+  if (firstAvailable) firstAvailable.selected = true;
   document.getElementById('pair-modal').hidden = false;
   input.focus();
   input.select();
@@ -469,7 +487,10 @@ function openPairModal() {
 async function pairOutlet(event) {
   event.preventDefault();
   try {
-    await api('POST', '/api/pair', {name: document.getElementById('pair-name').value.trim()});
+    await api('POST', '/api/pair', {
+      name: document.getElementById('pair-name').value.trim(),
+      unit: parseInt(document.getElementById('pair-unit').value, 10),
+    });
     closeOverlay('pair-modal');
     await refresh();
     showToast('Outlet paired');

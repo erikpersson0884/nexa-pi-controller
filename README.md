@@ -42,13 +42,14 @@ This repository contains **only the controller app**. It requires a 433 MHz ASK/
 
 - Switch outlets on and off from any device on your network
 - Pair new outlets from the web page ("Add outlet")
+- Choose an outlet number when pairing and change it later from the outlet edit menu
 - "All off" button
 - Countdown timers ("turn off in 30 minutes")
 - Weekly schedules (time + days), which can be disabled or deleted
 - Timers, outlets and last-known states are saved to disk and survive restarts
 - Runs directly with Python or as a Docker container
 - Docker runs with Gunicorn as the production WSGI server
-- Login protection with Argon2id password hashing and CSRF-protected sessions
+- Login protection with username/password authentication and CSRF-protected sessions
 
 ## Screenshots
 
@@ -84,41 +85,14 @@ Check the labels printed on your module, because the pin order can vary between 
 ## Installation
 
 ```sh
-# Generate a password hash (run locally, then put the output in .env)
-python3 -m pip install argon2-cffi
-python3 -c "from argon2 import PasswordHasher; print(PasswordHasher().hash(input('Password: ')))"
-```
-
 Create a `.env` file:
 
 ```env
 SECRET_KEY=replace-with-a-long-random-secret
 AUTH_USERNAME=admin
-AUTH_PASSWORD_HASH=replace-with-the-generated-argon2id-hash
+AUTH_PASSWORD=choose-a-long-unique-password
 COOKIE_SECURE=true
 ```
-
-For Portainer stacks, use Base64 to avoid `$` interpolation in Argon2 hashes:
-
-```sh
-python3 -c "import base64; print(base64.b64encode(input('Hash: ').encode()).decode())"
-```
-
-Set the generated value as `AUTH_PASSWORD_HASH_B64` and remove
-`AUTH_PASSWORD_HASH`. The Base64 value contains no `$` characters.
-
-For Portainer, the simplest option is to set the plaintext password directly
-as an environment variable. It contains no `$` interpolation-sensitive hash:
-
-```env
-AUTH_USERNAME=admin
-AUTH_PASSWORD=choose-a-long-unique-password
-```
-
-The application hashes this password with Argon2id in memory when it starts;
-the plaintext is not written to the data directory. Remove
-`AUTH_PASSWORD_HASH`, `AUTH_PASSWORD_HASH_B64`, and
-`AUTH_PASSWORD_HASH_FILE` when using `AUTH_PASSWORD`.
 
 Then install and run:
 
@@ -130,9 +104,7 @@ git clone https://github.com/erikpersson0884/smart-socket-controller.git
 cd smart-socket-controller
 
 # Install dependencies
-sudo apt update
-sudo apt install python3-flask python3-lgpio python3-dotenv
-python3 -m pip install --user Flask-WTF argon2-cffi
+python3 -m pip install -r requirements.txt
 
 # Find the GPIO chip number of the Pi's header (look for pinctrl-rp1)
 gpiodetect
@@ -168,9 +140,7 @@ Create a `.env` file in the project directory for required secrets and local ove
 | `TZ` | system time zone | Time zone used by schedules (set it in Docker) |
 | `SECRET_KEY` | required | Stable random secret used to sign sessions and CSRF tokens |
 | `AUTH_USERNAME` | `admin` | Username required to sign in |
-| `AUTH_PASSWORD` | unset | Plaintext startup password; hashed in memory with Argon2id, useful for Portainer |
-| `AUTH_PASSWORD_HASH` | unset | Argon2id hash of the login password |
-| `AUTH_PASSWORD_HASH_B64` | unset | Base64-encoded Argon2id hash; recommended for Portainer stacks |
+| `AUTH_PASSWORD` | unset | Password used for login |
 | `COOKIE_SECURE` | `false` | Set to `true` when the app is served over HTTPS |
 
 Hardware settings can be overridden with environment variables:
@@ -202,10 +172,9 @@ Tests use Python's built-in `unittest` framework and are located in `tests/`. Th
 python3 -m unittest discover -s tests -v
 ```
 
-To measure coverage, install the optional `coverage` package and run:
+To measure coverage, run:
 
 ```sh
-python3 -m pip install coverage
 python3 -m coverage run -m unittest discover -s tests
 python3 -m coverage report
 ```

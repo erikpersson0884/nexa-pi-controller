@@ -5,10 +5,7 @@ from unittest.mock import patch
 
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
 os.environ.setdefault("AUTH_USERNAME", "admin")
-os.environ.setdefault(
-    "AUTH_PASSWORD_HASH",
-    "$argon2id$v=19$m=65536,t=3,p=4$qdYeh8vk7ZB8iwFoTYVQYg$Kjew+lbiX79B7HkSvR0v/H1gBdXEHhyOL6dUbvTmB6U",
-)
+os.environ.setdefault("AUTH_PASSWORD", "test-password")
 
 import webui
 
@@ -16,10 +13,7 @@ import webui
 class WebUiTestCase(unittest.TestCase):
     def setUp(self):
         webui.AUTH_USERNAME = "admin"
-        webui.AUTH_PASSWORD_HASH = (
-            "$argon2id$v=19$m=65536,t=3,p=4$qdYeh8vk7ZB8iwFoTYVQYg$"
-            "Kjew+lbiX79B7HkSvR0v/H1gBdXEHhyOL6dUbvTmB6U"
-        )
+        webui.AUTH_PASSWORD = "test-password"
         self.client = webui.app.test_client()
         self.client.application.config["WTF_CSRF_ENABLED"] = False
         with self.client.session_transaction() as session:
@@ -82,14 +76,13 @@ class WebUiTestCase(unittest.TestCase):
         with self.client.session_transaction() as session:
             self.assertTrue(session["authenticated"])
 
-    def test_login_rejects_malformed_password_hash(self):
+    def test_login_rejects_wrong_password(self):
         with self.client.session_transaction() as session:
             session.clear()
-        with patch.object(webui, "AUTH_PASSWORD_HASH", "$argon2id=invalid"):
-            response = self.client.post(
-                "/login",
-                data={"username": "admin", "password": "test-password"},
-            )
+        response = self.client.post(
+            "/login",
+            data={"username": "admin", "password": "wrong-password"},
+        )
         self.assertEqual(response.status_code, 401)
 
     def test_homepage_explains_when_no_outlets_have_been_added(self):
@@ -203,6 +196,39 @@ class WebUiTestCase(unittest.TestCase):
         response = self.client.put("/api/devices/order", json={"order": [0, 0]})
         self.assertEqual(response.status_code, 400)
 
+    def test_device_can_be_renamed_and_reassigned(self):
+        webui.state[0] = True
+        webui.timers["schedules"].append({
+            "id": "schedule1", "unit": 0, "action": "off",
+            "time": "08:00", "days": [0], "enabled": True,
+        })
+        with patch.object(webui, "save_devices"), \
+                patch.object(webui, "save_state"), \
+                patch.object(webui, "save_timers"):
+            response = self.client.patch(
+                "/api/devices/0", json={"name": "Kitchen", "unit": 2}
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(webui.configured_devices[0], {"unit": 2, "name": "Kitchen"})
+        self.assertTrue(webui.state[2])
+        self.assertEqual(webui.timers["schedules"][0]["unit"], 2)
+
+    def test_device_reassignment_rejects_used_unit(self):
+        webui.configured_devices.append({"unit": 1, "name": "Second"})
+        response = self.client.patch(
+            "/api/devices/0", json={"name": "First", "unit": 1}
+        )
+        self.assertEqual(response.status_code, 409)
+
+    def test_pair_can_use_requested_unit(self):
+        with patch.object(webui, "transmit"), patch.object(webui, "save_devices"), \
+                patch.object(webui, "save_state"):
+            response = self.client.post(
+                "/api/pair", json={"name": "Kitchen", "unit": 5}
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json, {"ok": True, "unit": 5})
+
     def test_switch_rejects_unknown_units_and_actions(self):
         self.assertEqual(self.client.post("/api/9/on").status_code, 400)
         self.assertEqual(self.client.post("/api/0/toggle").status_code, 400)
@@ -233,7 +259,9 @@ class WebUiTestCase(unittest.TestCase):
         self.assertTrue(webui.state[1])
 
     def test_device_can_be_renamed_and_removed_with_timers(self):
-        with patch.object(webui, "save_devices"):
+        with patch.object(webui, "save_devices"), \
+                patch.object(webui, "save_state"), \
+                patch.object(webui, "save_timers"):
             response = self.client.patch("/api/devices/0", json={"name": "Kitchen"})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(webui.configured_devices[0]["name"], "Kitchen")

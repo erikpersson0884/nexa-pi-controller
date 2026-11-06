@@ -4,13 +4,12 @@
 
 import re
 import os
+import hmac
 import threading
 import time
 import uuid
 from datetime import datetime
 
-from argon2 import PasswordHasher
-from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
 from flask import Flask, jsonify, render_template, request, send_from_directory
 from flask import redirect, session, url_for
 from flask_wtf.csrf import CSRFProtect
@@ -33,7 +32,6 @@ GPIO_MODE = config.GPIO_MODE
 SECRET_KEY = config.SECRET_KEY
 AUTH_USERNAME = config.AUTH_USERNAME
 AUTH_PASSWORD = config.AUTH_PASSWORD
-AUTH_PASSWORD_HASH = config.AUTH_PASSWORD_HASH
 PROJECT_DIR = config.PROJECT_DIR
 DATA_DIR = config.DATA_DIR
 STATE_FILE = config.STATE_FILE
@@ -53,13 +51,8 @@ app.config.update(
 )
 csrf = CSRFProtect()
 csrf.init_app(app)
-password_hasher = PasswordHasher()
-if AUTH_PASSWORD:
-    AUTH_PASSWORD_HASH = password_hasher.hash(AUTH_PASSWORD)
-if not AUTH_PASSWORD_HASH:
-    raise RuntimeError(
-        "AUTH_PASSWORD or AUTH_PASSWORD_HASH must be configured"
-    )
+if AUTH_PASSWORD is None:
+    raise RuntimeError("AUTH_PASSWORD must be configured")
 
 
 # ---------- Legacy-compatible storage/radio wrappers ----------
@@ -154,9 +147,9 @@ def login_submit():
     try:
         valid = (
             username == AUTH_USERNAME
-            and password_hasher.verify(AUTH_PASSWORD_HASH, password)
+            and hmac.compare_digest(password, AUTH_PASSWORD)
         )
-    except (InvalidHashError, VerificationError, VerifyMismatchError):
+    except TypeError:
         valid = False
     if not valid:
         return render_template("login.html", error="Invalid username or password"), 401
@@ -240,8 +233,25 @@ def rename_device(unit):
     name = data.get("name")
     if not isinstance(name, str) or not name.strip():
         return jsonify(error="name is required"), 400
+    new_unit = data.get("unit", unit)
+    if not isinstance(new_unit, int) or not 0 <= new_unit <= 15:
+        return jsonify(error="unit must be an integer between 0 and 15"), 400
+    if new_unit != unit and any(d["unit"] == new_unit for d in configured_devices):
+        return jsonify(error="That outlet number is already in use"), 409
     device["name"] = name.strip()
+    if new_unit != unit:
+        device["unit"] = new_unit
+        if unit in state:
+            state[new_unit] = state.pop(unit)
+        if unit in last_sent:
+            last_sent[new_unit] = last_sent.pop(unit)
+        for collection in ("schedules", "countdowns"):
+            for timer in timers[collection]:
+                if timer["unit"] == unit:
+                    timer["unit"] = new_unit
     save_devices(configured_devices)
+    save_state(state)
+    save_timers()
     return jsonify(ok=True)
 
 
@@ -287,7 +297,14 @@ def pair():
     if not available_units:
         return jsonify(error="all 16 Nexa units are already in use"), 409
 
-    unit = available_units[0]
+    requested_unit = data.get("unit")
+    if requested_unit is None:
+        unit = available_units[0]
+    elif (not isinstance(requested_unit, int)
+          or requested_unit not in available_units):
+        return jsonify(error="unit must be an available integer between 0 and 15"), 400
+    else:
+        unit = requested_unit
     try:
         transmit(True, unit)
         configured_devices.append({"unit": unit, "name": name.strip()})

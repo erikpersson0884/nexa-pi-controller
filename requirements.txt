@@ -1,0 +1,8 @@
+Flask
+Flask-WTF
+python-dotenv
+lgpio
+gunicorn
+
+# Test and coverage tooling
+coverage

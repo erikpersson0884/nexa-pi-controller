@@ -3,10 +3,7 @@ import os
 from unittest.mock import patch
 
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
-os.environ.setdefault(
-    "AUTH_PASSWORD_HASH",
-    "$argon2id$v=19$m=65536,t=3,p=4$qdYeh8vk7ZB8iwFoTYVQYg$Kjew+lbiB8HkSvR0v/H1gBdXEHhyOL6dUbvTmB6U",
-)
+os.environ.setdefault("AUTH_PASSWORD", "test-password")
 
 import radio
 

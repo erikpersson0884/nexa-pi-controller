@@ -3,8 +3,10 @@ FROM python:3.12-slim-bookworm
 # lgpio is built from source by pip, so it needs a compiler and swig
 RUN apt-get update \
  && apt-get install -y --no-install-recommends build-essential swig \
- && pip install --no-cache-dir flask flask-wtf python-dotenv argon2-cffi lgpio gunicorn \
  && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
 
 COPY webui.py /app/webui.py
 COPY config.py radio.py receiver.py scheduler.py storage.py /app/

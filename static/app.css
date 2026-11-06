@@ -13,7 +13,7 @@
 body { margin:0; min-height:100vh; padding:20px; background:var(--bg); color:var(--text);
        font:16px/1.4 Inter,system-ui,sans-serif; }
 main { max-width:520px; margin:0 auto; }
-button, input { font:inherit; }
+button, input, select { font:inherit; }
 button { min-height:44px; border:0; border-radius:10px; padding:10px 14px;
          background:var(--btn); color:var(--text); cursor:pointer; }
 button:disabled { opacity:.55; cursor:wait; }
@@ -59,10 +59,16 @@ h2 { margin:0 0 16px; font-size:1.2rem; }
                   border-radius:16px; background:var(--card); box-shadow:var(--shadow); }
 .dialog label, .sheet label, .field-label { display:block; margin:14px 0 7px;
                                              color:var(--muted); font-size:.9rem; font-weight:600; }
-input[type=text], input[type=password], input[type=number], input[type=time] { width:100%; min-height:46px;
+input[type=text], input[type=password], input[type=number], input[type=time], select { width:100%; min-height:46px;
   padding:10px 12px; border:1px solid var(--line); border-radius:10px;
   background:var(--bg); color:var(--text); }
-input:focus { outline:2px solid color-mix(in srgb, var(--primary) 70%, transparent);
+select { appearance:none; padding-right:40px;
+  background-image:linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+                    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position:calc(100% - 17px) 20px, calc(100% - 12px) 20px;
+  background-size:5px 5px, 5px 5px;
+  background-repeat:no-repeat; }
+input:focus, select:focus { outline:2px solid color-mix(in srgb, var(--primary) 70%, transparent);
               outline-offset:1px; }
 .close-button { position:absolute; top:10px; right:10px; min-width:44px; padding:4px;
                 background:transparent; font-size:1.5rem; }
