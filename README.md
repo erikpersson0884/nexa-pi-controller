@@ -162,7 +162,9 @@ Create a `.env` file in the project directory for required secrets and local ove
 | `HOST` | `127.0.0.1` | Network interface to bind to. Use `0.0.0.0` only when the app must be reachable from other devices |
 | `DATA_DIR` | project `data/` folder (`/data` in Docker) | Where `nexa_state.json`, `nexa_devices.json` and `nexa_timers.json` are stored |
 | `GPIO_MODE` | `hardware` | Set to `mock` on a development computer without GPIO hardware. Pairing and switching are simulated |
-| `RX_PIN` | `27` | BCM GPIO input connected to the 433 MHz receiver DATA output (physical pin 13) |
+| `GPIO_CHIP` | `15` | GPIO chip number for the Pi header (`pinctrl-rp1` on the default setup) |
+| `TX_PIN` | `17` | BCM GPIO output connected to the transmitter DATA pin (physical pin 11) |
+| `RX_PIN` | `27` | BCM GPIO input connected to the receiver DATA output (physical pin 13) |
 | `TZ` | system time zone | Time zone used by schedules (set it in Docker) |
 | `SECRET_KEY` | required | Stable random secret used to sign sessions and CSRF tokens |
 | `AUTH_USERNAME` | `admin` | Username required to sign in |
@@ -171,13 +173,13 @@ Create a `.env` file in the project directory for required secrets and local ove
 | `AUTH_PASSWORD_HASH_B64` | unset | Base64-encoded Argon2id hash; recommended for Portainer stacks |
 | `COOKIE_SECURE` | `false` | Set to `true` when the app is served over HTTPS |
 
-Hardware settings are constants at the top of `webui.py`:
+Hardware settings can be overridden with environment variables:
 
-| Constant | Default | Description |
+| Variable | Default | Description |
 |---|---|---|
-| `CHIP` | `15` | GPIO chip of the Pi's header (`pinctrl-rp1` in `gpiodetect`) |
-| `PIN` | `17` | BCM GPIO number the transmitter DATA pin is wired to |
-| `TX_ID` | `12345678` | Transmitter ID (0-67108863) your outlets learn. Changing it means re-pairing every outlet |
+| `GPIO_CHIP` | `15` | GPIO chip of the Pi's header (`pinctrl-rp1` in `gpiodetect`) |
+| `TX_PIN` | `17` | BCM GPIO number the transmitter DATA pin is wired to |
+| `RX_PIN` | `27` | BCM GPIO number the receiver DATA pin is wired to |
 | `REPEAT` | `6` | How many times each command is sent |
 
 # Scripts

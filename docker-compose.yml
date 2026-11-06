@@ -12,6 +12,9 @@ services:
       - TZ=Europe/Stockholm
       - DATA_DIR=/data
       - HOST=0.0.0.0
+      - GPIO_CHIP=${GPIO_CHIP:-15}
+      - TX_PIN=${TX_PIN:-17}
+      - RX_PIN=${RX_PIN:-27}
       - SECRET_KEY=${SECRET_KEY:?Set SECRET_KEY in .env}
       - AUTH_USERNAME=${AUTH_USERNAME:-admin}
       - AUTH_PASSWORD=${AUTH_PASSWORD:-}

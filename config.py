@@ -7,13 +7,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-CHIP = 15
-PIN = 17
+CHIP = int(os.getenv("GPIO_CHIP", "15"))
+PIN = int(os.getenv("TX_PIN", "17"))
 TX_ID = 12345678
 T = 260e-6
 REPEAT = 6
 GPIO_MODE = os.getenv("GPIO_MODE", "hardware").lower()
-RX_PIN = int(os.getenv("RX_PIN", 27))
+RX_PIN = int(os.getenv("RX_PIN", "27"))
 SECRET_KEY = os.getenv("SECRET_KEY")
 AUTH_USERNAME = os.getenv("AUTH_USERNAME", "admin")
 AUTH_PASSWORD = os.getenv("AUTH_PASSWORD")
