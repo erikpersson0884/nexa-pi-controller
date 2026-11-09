@@ -5,7 +5,7 @@ from unittest.mock import patch
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
 os.environ.setdefault("AUTH_PASSWORD", "test-password")
 
-import radio
+from nexa_pi_controller import radio
 
 
 class RadioTestCase(unittest.TestCase):

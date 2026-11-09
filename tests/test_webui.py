@@ -7,7 +7,7 @@ os.environ.setdefault("SECRET_KEY", "test-secret-key")
 os.environ.setdefault("AUTH_USERNAME", "admin")
 os.environ.setdefault("AUTH_PASSWORD", "test-password")
 
-import webui
+from nexa_pi_controller import webui
 
 
 class WebUiTestCase(unittest.TestCase):

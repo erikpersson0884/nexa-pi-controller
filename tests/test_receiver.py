@@ -3,7 +3,7 @@ import threading
 import time
 from unittest.mock import patch
 
-import receiver
+from nexa_pi_controller import receiver
 
 
 class ReceiverTestCase(unittest.TestCase):

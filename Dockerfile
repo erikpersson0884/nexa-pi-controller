@@ -8,10 +8,10 @@ RUN apt-get update \
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
-COPY nexa-pi-controller /app/nexa-pi-controller
+COPY nexa_pi_controller /app/nexa_pi_controller
 COPY gunicorn.conf.py /app/
 
 # lgpio writes small temporary files to the working directory, so it must be writable
 WORKDIR /app
-ENV PYTHONPATH=/app/nexa-pi-controller
+ENV PYTHONPATH=/app/nexa_pi_controller
 CMD ["gunicorn", "-c", "/app/gunicorn.conf.py", "webui:app"]
