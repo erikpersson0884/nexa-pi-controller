@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 import stat
 import subprocess
 import sys
@@ -38,10 +39,11 @@ print(json.dumps(seen))
         result = subprocess.run(
             [sys.executable, "-c", code],
             env=env,
-            check=True,
+            cwd=Path(__file__).resolve().parent.parent,
             capture_output=True,
             text=True,
         )
+        self.assertEqual(result.returncode, 0, result.stderr)
         return json.loads(result.stdout)
 
     def test_default_directory_is_private_before_lgpio_import_and_cleaned_up(self):
