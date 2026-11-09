@@ -1,0 +1,12 @@
+{
+  "name": "nexa-pi-controller-tests",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/test_app.js tests/test_service_worker.js",
+    "test:coverage": "c8 --all --include=nexa_pi_controller/static/app.js --reporter=text --reporter=lcov npm test"
+  },
+  "devDependencies": {
+    "c8": "^9.1.0",
+    "jsdom": "^26.1.0"
+  }
+}

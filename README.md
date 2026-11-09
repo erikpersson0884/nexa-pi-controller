@@ -164,7 +164,8 @@ Hardware settings can be overridden with environment variables:
 |---|---|
 | `python3 -m nexa_pi_controller` | Start the web UI |
 | `PYTHONPATH=. python3 -m unittest discover -s tests -v` | Run the test suite |
-| `node --test tests/test_service_worker.js` | Run the service worker tests (Node.js 22+) |
+| `npm test` | Run browser-code and service worker tests (Node.js 22+) |
+| `npm run test:coverage` | Run JavaScript tests and generate an LCOV report for `app.js` |
 | `PYTHONPATH=. python3 -m coverage run --source=nexa_pi_controller -m unittest discover -s tests && python3 -m coverage report` | Run tests and print a coverage report |
 | `docker compose up --build` | Build and start the container |
 | `docker compose logs -f` | Follow the container logs |
@@ -179,13 +180,17 @@ Tests use Python's built-in `unittest` framework and are located in `tests/`. Th
 PYTHONPATH=. python3 -m unittest discover -s tests -v
 ```
 
-The service worker tests require Node.js 22 or newer:
+JavaScript tests use Node.js 22 or newer and jsdom to exercise the page without GPIO hardware. Install the test dependencies and run them with:
 
 ```sh
-node --test tests/test_service_worker.js
+npm ci
+npm test
+npm run test:coverage
 ```
 
-To measure coverage, run:
+JavaScript coverage is reported in the terminal and written to `coverage/lcov.info`. The coverage badge tracks Python only; the SonarQube workflow imports both Python and JavaScript reports.
+
+To measure Python coverage, run:
 
 ```sh
 PYTHONPATH=. python3 -m coverage run --source=nexa_pi_controller -m unittest discover -s tests
@@ -217,7 +222,12 @@ The project can optionally be analyzed with SonarQube. This requires access to y
    ```sh
    PYTHONPATH=. python3 -m coverage run --source=nexa_pi_controller -m unittest discover -s tests
    python3 -m coverage xml
-   sonar-scanner
+   npm ci
+   npm run test:coverage
+   sonar-scanner -Dsonar.sources=nexa_pi_controller -Dsonar.tests=tests \
+     -Dsonar.python.coverage.reportPaths=coverage.xml \
+     -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
+     -Dsonar.exclusions=node_modules/**,coverage/**
    ```
 
 Never commit your token.

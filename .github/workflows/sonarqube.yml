@@ -31,8 +31,11 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Run service worker tests
-        run: node --test tests/test_service_worker.js
+      - name: Install JavaScript test dependencies
+        run: npm ci
+
+      - name: Run JavaScript tests with coverage
+        run: npm run test:coverage
 
       - name: Install test dependencies
         run: python -m pip install --upgrade pip -r requirements.txt
@@ -53,7 +56,8 @@ jobs:
             -Dsonar.projectName=nexa-web
             -Dsonar.sources=nexa_pi_controller
             -Dsonar.tests=tests
-            -Dsonar.test.inclusions=tests/**/*.py
+            -Dsonar.test.inclusions=tests/**/*.py,tests/**/*.js
             -Dsonar.python.coverage.reportPaths=coverage.xml
+            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
             -Dsonar.python.version=3.11
-            -Dsonar.exclusions=**/__pycache__/**,**/*.pyc,venv/**,.venv/**,data/**,coverage.xml
+            -Dsonar.exclusions=**/__pycache__/**,**/*.pyc,venv/**,.venv/**,node_modules/**,coverage/**,data/**,coverage.xml

@@ -24,8 +24,18 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Run service worker tests
-        run: node --test tests/test_service_worker.js
+      - name: Install JavaScript test dependencies
+        run: npm ci
+
+      - name: Run JavaScript tests with coverage
+        run: npm run test:coverage
+
+      - name: Upload JavaScript coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: javascript-coverage
+          path: coverage/lcov.info
+          if-no-files-found: error
 
       - name: Install test dependencies
         run: python -m pip install --upgrade pip -r requirements.txt
@@ -58,7 +68,7 @@ jobs:
           cat > /tmp/coverage.json <<EOF
           {
             "schemaVersion": 1,
-            "label": "coverage",
+            "label": "python coverage",
             "message": "${COVERAGE}%",
             "color": "${COLOR}"
           }

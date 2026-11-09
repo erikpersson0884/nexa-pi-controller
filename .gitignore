@@ -38,6 +38,8 @@ instance/
 htmlcov/
 .tox/
 .nox/
+node_modules/
+coverage/
 
 # Environment and local settings
 .env
