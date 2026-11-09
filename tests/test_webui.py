@@ -45,7 +45,7 @@ class WebUiTestCase(unittest.TestCase):
         )
         self.assertIn('id="outlet-list"', html)
         self.assertIn('id="timer-sheet"', html)
-        self.assertIn('<h2 id="timer-sheet-title">Timers</h2>', html)
+        self.assertIn('<h2 id="timer-sheet-title">All timers</h2>', html)
         self.assertIn('id="editor-sheet"', html)
         self.assertIn('id="pair-modal"', html)
         self.assertIn('id="pair-name"', html)
@@ -200,7 +200,7 @@ class WebUiTestCase(unittest.TestCase):
     def test_device_can_be_renamed_and_reassigned(self):
         webui.state[0] = True
         webui.timers["schedules"].append({
-            "id": "schedule1", "unit": 0, "action": "off",
+            "id": "schedule1", "units": [0, 1], "action": "off",
             "time": "08:00", "days": [0], "enabled": True,
         })
         with patch.object(webui, "save_devices"), \
@@ -212,7 +212,7 @@ class WebUiTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(webui.configured_devices[0], {"unit": 2, "name": "Kitchen"})
         self.assertTrue(webui.state[2])
-        self.assertEqual(webui.timers["schedules"][0]["unit"], 2)
+        self.assertEqual(webui.timers["schedules"][0]["units"], [2, 1])
 
     def test_device_reassignment_rejects_used_unit(self):
         webui.configured_devices.append({"unit": 1, "name": "Second"})
@@ -268,42 +268,79 @@ class WebUiTestCase(unittest.TestCase):
         self.assertEqual(webui.configured_devices[0]["name"], "Kitchen")
 
         webui.timers["schedules"].append({
-            "id": "schedule1", "unit": 0, "action": "on",
+            "id": "schedule1", "units": [0], "action": "on",
             "time": "08:00", "days": [0], "enabled": True,
         })
+        webui.timers["schedules"].append({
+            "id": "schedule2", "units": [0, 1], "action": "on",
+            "time": "09:00", "days": [0], "enabled": True,
+        })
+        webui.configured_devices.append({"unit": 1, "name": "Second"})
         with patch.object(webui, "save_devices"), patch.object(webui, "save_state"), \
                 patch.object(webui, "save_timers"):
             response = self.client.delete("/api/devices/0")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(webui.configured_devices, [])
-        self.assertEqual(webui.timers["schedules"], [])
+        self.assertEqual(webui.configured_devices, [{"unit": 1, "name": "Second"}])
+        self.assertEqual(
+            [(s["id"], s["units"]) for s in webui.timers["schedules"]],
+            [("schedule2", [1])],
+        )
 
     def test_schedule_can_be_updated(self):
+        webui.configured_devices.append({"unit": 1, "name": "Second"})
         webui.timers["schedules"].append({
-            "id": "schedule1", "unit": 0, "action": "on",
+            "id": "schedule1", "units": [0], "action": "on",
             "time": "08:00", "days": [0], "enabled": True,
         })
         with patch.object(webui, "save_timers"):
-            response = self.client.patch(
+            response = self.client.put(
                 "/api/schedules/schedule1",
-                json={"unit": 0, "action": "off", "time": "18:30", "days": [5, 6]},
+                json={"units": [1, 0], "action": "off", "time": "18:30", "days": [5, 6]},
             )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(webui.timers["schedules"][0]["time"], "18:30")
         self.assertEqual(webui.timers["schedules"][0]["days"], [5, 6])
+        self.assertEqual(webui.timers["schedules"][0]["units"], [1, 0])
+        self.assertEqual(self.client.put(
+            "/api/schedules/missing",
+            json={"units": [0], "action": "off", "time": "18:30", "days": [5]},
+        ).status_code, 404)
+
+    def test_legacy_unit_key_is_still_accepted(self):
+        with patch.object(webui, "save_timers"):
+            response = self.client.post(
+                "/api/schedules",
+                json={"unit": 0, "action": "on", "time": "08:30", "days": [1]},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(webui.timers["schedules"][0]["units"], [0])
+
+    def test_timers_require_valid_units(self):
+        for units in ([], [9], [0, 9], ["0"], "0", [True]):
+            response = self.client.post("/api/schedules", json={
+                "units": units, "action": "on", "time": "08:30", "days": [1],
+            })
+            self.assertEqual(response.status_code, 400, units)
+            response = self.client.post("/api/countdowns", json={
+                "units": units, "action": "on", "minutes": 5,
+            })
+            self.assertEqual(response.status_code, 400, units)
 
     def test_countdown_can_be_added_read_and_deleted(self):
+        webui.configured_devices.append({"unit": 1, "name": "Second"})
         with patch.object(webui, "save_timers"):
             response = self.client.post(
                 "/api/countdowns",
-                json={"unit": 0, "action": "off", "minutes": 5},
+                json={"units": [0, 1], "action": "off", "minutes": 5},
             )
         self.assertEqual(response.status_code, 200)
         countdown_id = response.json["ok"] and webui.timers["countdowns"][0]["id"]
 
         response = self.client.get("/api/timers")
-        self.assertEqual(response.json["countdowns"][0]["name"], "Test outlet")
-        self.assertGreaterEqual(response.json["countdowns"][0]["remaining"], 299)
+        countdown = response.json["countdowns"][0]
+        self.assertEqual(countdown["units"], [0, 1])
+        self.assertEqual(countdown["names"], ["Test outlet", "Second"])
+        self.assertGreaterEqual(countdown["remaining"], 299)
 
         with patch.object(webui, "save_timers"):
             response = self.client.delete(f"/api/countdowns/{countdown_id}")
@@ -313,22 +350,22 @@ class WebUiTestCase(unittest.TestCase):
     def test_countdown_and_schedule_validation(self):
         self.assertEqual(self.client.post(
             "/api/countdowns",
-            json={"unit": 0, "action": "off", "minutes": 0},
+            json={"units": [0], "action": "off", "minutes": 0},
         ).status_code, 400)
         self.assertEqual(self.client.post(
             "/api/schedules",
-            json={"unit": 0, "action": "on", "time": "25:00", "days": [1]},
+            json={"units": [0], "action": "on", "time": "25:00", "days": [1]},
         ).status_code, 400)
         self.assertEqual(self.client.post(
             "/api/schedules",
-            json={"unit": 0, "action": "on", "time": "08:30", "days": []},
+            json={"units": [0], "action": "on", "time": "08:30", "days": []},
         ).status_code, 400)
 
     def test_schedule_can_be_toggled_and_deleted(self):
         with patch.object(webui, "save_timers"):
             response = self.client.post(
                 "/api/schedules",
-                json={"unit": 0, "action": "on", "time": "08:30", "days": [2, 1, 2]},
+                json={"units": [0], "action": "on", "time": "08:30", "days": [2, 1, 2]},
             )
         schedule_id = webui.timers["schedules"][0]["id"]
         self.assertEqual(webui.timers["schedules"][0]["days"], [1, 2])

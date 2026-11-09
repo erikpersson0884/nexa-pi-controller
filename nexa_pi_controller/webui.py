@@ -264,6 +264,27 @@ def valid_unit(unit):
     return unit in [d["unit"] for d in configured_devices]
 
 
+def parse_units(data):
+    """Return a de-duplicated list of valid units from a request body.
+
+    Accepts the legacy single "unit" key as well as "units". Returns
+    (units, error_message).
+    """
+    units = data.get("units")
+    if units is None and "unit" in data:
+        units = [data["unit"]]
+    if (not isinstance(units, list) or not units
+            or not all(isinstance(u, int) and not isinstance(u, bool) for u in units)):
+        return None, "Select at least one outlet"
+    if not all(valid_unit(u) for u in units):
+        return None, "Unknown outlet"
+    return list(dict.fromkeys(units)), None
+
+
+def device_names(units):
+    return [device_name(u) for u in units]
+
+
 # ---------- Routes: switching and pairing ----------
 @app.get("/")
 def index():
@@ -334,8 +355,7 @@ def rename_device(unit):
             last_sent[new_unit] = last_sent.pop(unit)
         for collection in ("schedules", "countdowns"):
             for timer in timers[collection]:
-                if timer["unit"] == unit:
-                    timer["unit"] = new_unit
+                timer["units"] = [new_unit if u == unit else u for u in timer["units"]]
     save_devices(configured_devices)
     save_state(state)
     save_timers()
@@ -351,12 +371,13 @@ def remove_device(unit):
     save_devices(configured_devices)
     save_state(state)
     with timer_lock:
-        timers["countdowns"] = [
-            c for c in timers["countdowns"] if c["unit"] != unit
-        ]
-        timers["schedules"] = [
-            s for s in timers["schedules"] if s["unit"] != unit
-        ]
+        for collection in ("countdowns", "schedules"):
+            remaining = []
+            for timer in timers[collection]:
+                timer["units"] = [u for u in timer["units"] if u != unit]
+                if timer["units"]:
+                    remaining.append(timer)
+            timers[collection] = remaining
         save_timers()
     return jsonify(ok=True)
 
@@ -421,10 +442,10 @@ def get_timers():
     now = time.time()
     with timer_lock:
         schedules = [
-            {**s, "name": device_name(s["unit"])} for s in timers["schedules"]
+            {**s, "names": device_names(s["units"])} for s in timers["schedules"]
         ]
         countdowns = [
-            {**c, "name": device_name(c["unit"]),
+            {**c, "names": device_names(c["units"]),
              "remaining": max(0, int(c["run_at"] - now))}
             for c in timers["countdowns"]
         ]
@@ -436,9 +457,10 @@ def get_timers():
 @app.post("/api/countdowns")
 def add_countdown():
     data = request.get_json(silent=True) or {}
-    unit, action, minutes = data.get("unit"), data.get("action"), data.get("minutes")
-    if not isinstance(unit, int) or not valid_unit(unit):
-        return jsonify(error="Unknown outlet"), 400
+    action, minutes = data.get("action"), data.get("minutes")
+    units, error = parse_units(data)
+    if error:
+        return jsonify(error=error), 400
     if action not in ("on", "off"):
         return jsonify(error="Action must be on or off"), 400
     if not isinstance(minutes, int) or not 1 <= minutes <= 1440:
@@ -446,7 +468,7 @@ def add_countdown():
     with timer_lock:
         timers["countdowns"].append({
             "id": uuid.uuid4().hex[:8],
-            "unit": unit,
+            "units": units,
             "action": action,
             "run_at": time.time() + minutes * 60,
         })
@@ -462,27 +484,38 @@ def delete_countdown(cid):
     return jsonify(ok=True)
 
 
-@app.post("/api/schedules")
-def add_schedule():
-    data = request.get_json(silent=True) or {}
-    unit, action = data.get("unit"), data.get("action")
-    t, days = data.get("time"), data.get("days")
-    if not isinstance(unit, int) or not valid_unit(unit):
-        return jsonify(error="Unknown outlet"), 400
+def parse_schedule(data):
+    """Validate a schedule body; returns (fields, error_message)."""
+    action = data.get("action")
+    schedule_time, days = data.get("time"), data.get("days")
+    units, error = parse_units(data)
+    if error:
+        return None, error
     if action not in ("on", "off"):
-        return jsonify(error="Action must be on or off"), 400
-    if not isinstance(t, str) or not re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", t):
-        return jsonify(error="Time must look like 18:30"), 400
+        return None, "Action must be on or off"
+    if (not isinstance(schedule_time, str)
+            or not re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", schedule_time)):
+        return None, "Time must look like 18:30"
     if (not isinstance(days, list) or not days
             or not all(isinstance(d, int) and 0 <= d <= 6 for d in days)):
-        return jsonify(error="Pick at least one day"), 400
+        return None, "Pick at least one day"
+    return {
+        "units": units,
+        "action": action,
+        "time": schedule_time,
+        "days": sorted(set(days)),
+    }, None
+
+
+@app.post("/api/schedules")
+def add_schedule():
+    fields, error = parse_schedule(request.get_json(silent=True) or {})
+    if error:
+        return jsonify(error=error), 400
     with timer_lock:
         timers["schedules"].append({
             "id": uuid.uuid4().hex[:8],
-            "unit": unit,
-            "action": action,
-            "time": t,
-            "days": sorted(set(days)),
+            **fields,
             "enabled": True,
         })
         save_timers()
@@ -500,30 +533,15 @@ def toggle_schedule(sid):
     return jsonify(error="Not found"), 404
 
 
-@app.patch("/api/schedules/<sid>")
+@app.route("/api/schedules/<sid>", methods=["PUT", "PATCH"])
 def update_schedule(sid):
-    data = request.get_json(silent=True) or {}
-    unit, action = data.get("unit"), data.get("action")
-    schedule_time, days = data.get("time"), data.get("days")
-    if not isinstance(unit, int) or not valid_unit(unit):
-        return jsonify(error="Unknown outlet"), 400
-    if action not in ("on", "off"):
-        return jsonify(error="Action must be on or off"), 400
-    if (not isinstance(schedule_time, str)
-            or not re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", schedule_time)):
-        return jsonify(error="Time must look like 18:30"), 400
-    if (not isinstance(days, list) or not days
-            or not all(isinstance(d, int) and 0 <= d <= 6 for d in days)):
-        return jsonify(error="Pick at least one day"), 400
+    fields, error = parse_schedule(request.get_json(silent=True) or {})
+    if error:
+        return jsonify(error=error), 400
     with timer_lock:
         for schedule in timers["schedules"]:
             if schedule["id"] == sid:
-                schedule.update({
-                    "unit": unit,
-                    "action": action,
-                    "time": schedule_time,
-                    "days": sorted(set(days)),
-                })
+                schedule.update(fields)
                 save_timers()
                 return jsonify(ok=True)
     return jsonify(error="Not found"), 404

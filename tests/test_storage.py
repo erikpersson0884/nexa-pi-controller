@@ -61,6 +61,19 @@ class StorageTestCase(unittest.TestCase):
         self.assertEqual(storage.load_state(), {})
         self.assertEqual(storage.load_timers(), {"schedules": [], "countdowns": []})
 
+    def test_legacy_single_unit_timers_are_migrated_and_saved(self):
+        self.data.mkdir()
+        Path(storage.TIMER_FILE).write_text(json.dumps({
+            "schedules": [{"id": "s1", "unit": 3, "action": "on"}],
+            "countdowns": [{"id": "c1", "unit": 4, "run_at": 1}],
+        }))
+        timers = storage.load_timers()
+        self.assertEqual(timers["schedules"][0]["units"], [3])
+        self.assertNotIn("unit", timers["schedules"][0])
+        self.assertEqual(timers["countdowns"][0]["units"], [4])
+        saved = json.loads(Path(storage.TIMER_FILE).read_text())
+        self.assertEqual(saved, timers)
+
     def test_timers_default_missing_collections(self):
         self.data.mkdir()
         Path(storage.TIMER_FILE).write_text('{"schedules": [{"id": "s1"}]}')

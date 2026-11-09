@@ -51,16 +51,34 @@ def save_state(state):
         pass
 
 
+def _migrate_units(entries):
+    """Convert legacy single-"unit" entries to "units" lists in place."""
+    migrated = False
+    for entry in entries:
+        if "units" not in entry and "unit" in entry:
+            entry["units"] = [entry["unit"]]
+            migrated = True
+        if "unit" in entry:
+            del entry["unit"]
+            migrated = True
+    return migrated
+
+
 def load_timers():
     try:
         with open(TIMER_FILE) as f:
             data = json.load(f)
-        return {
+        timers = {
             "schedules": data.get("schedules", []),
             "countdowns": data.get("countdowns", []),
         }
     except Exception:
         return {"schedules": [], "countdowns": []}
+    migrated = _migrate_units(timers["schedules"])
+    migrated = _migrate_units(timers["countdowns"]) or migrated
+    if migrated:
+        save_timers(timers)
+    return timers
 
 
 def save_timers(timers):

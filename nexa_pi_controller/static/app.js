@@ -8,6 +8,51 @@ let toastTimer;
 let reorderMode = false;
 let reorderDevices = [];
 let dragged = null;
+let viewMode = readView();
+let editorUnits = [];
+let timerSheetOpen = false;
+let suppressTileClick = false;
+const LONG_PRESS_MS = 500;
+const ICONS = {
+  power: [['path', {d: 'M18.36 6.64a9 9 0 1 1-12.73 0'}], ['path', {d: 'M12 2v10'}]],
+  clock: [['circle', {cx: 12, cy: 12, r: 10}], ['polyline', {points: '12 6 12 12 16 14'}]],
+  list: [['path', {d: 'M4 6h16M4 12h16M4 18h16'}]],
+  grid: [['rect', {x: 4, y: 4, width: 6, height: 6, rx: 1}], ['rect', {x: 14, y: 4, width: 6, height: 6, rx: 1}],
+    ['rect', {x: 4, y: 14, width: 6, height: 6, rx: 1}], ['rect', {x: 14, y: 14, width: 6, height: 6, rx: 1}]],
+  check: [['polyline', {points: '20 6 9 17 4 12'}]],
+};
+
+function readView() {
+  try {
+    return localStorage.getItem('nexa-view') === 'grid' ? 'grid' : 'list';
+  } catch (_) { return 'list'; }
+}
+
+function setView(view) {
+  viewMode = view === 'grid' ? 'grid' : 'list';
+  try { localStorage.setItem('nexa-view', viewMode); } catch (_) {}
+  renderDevices();
+}
+
+function icon(name, size = 20) {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('width', size);
+  svg.setAttribute('height', size);
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('stroke-width', 2);
+  svg.setAttribute('stroke-linecap', 'round');
+  svg.setAttribute('stroke-linejoin', 'round');
+  svg.setAttribute('aria-hidden', 'true');
+  ICONS[name].forEach(([tag, attrs]) => {
+    const shape = document.createElementNS(ns, tag);
+    Object.entries(attrs).forEach(([key, value]) => shape.setAttribute(key, value));
+    svg.append(shape);
+  });
+  return svg;
+}
 
 async function api(method, url, body) {
   const options = {method};
@@ -42,14 +87,14 @@ function showToast(message) {
 
 function closeOverlay(id) {
   document.getElementById(id).hidden = true;
-  if (id === 'timer-sheet') timerUnit = null;
+  if (id === 'timer-sheet') { timerUnit = null; timerSheetOpen = false; }
   if (id === 'editor-sheet') editing = null;
   if (id === 'rename-modal' || id === 'remove-modal') editingDevice = null;
 }
 
 function timerSummary(unit) {
-  const schedules = timerData.schedules.filter(s => s.unit === unit && s.enabled);
-  const countdowns = timerData.countdowns.filter(c => c.unit === unit);
+  const schedules = timerData.schedules.filter(s => s.units.includes(unit) && s.enabled);
+  const countdowns = timerData.countdowns.filter(c => c.units.includes(unit));
   const countdownParts = countdowns.slice(0, 1).map(c =>
     `${c.action === 'on' ? 'On' : 'Off'} in ${fmtRemaining(c.remaining)}`);
   const parts = [...countdownParts, ...schedules.slice(0, 2).map(s =>
@@ -58,17 +103,131 @@ function timerSummary(unit) {
   return parts.length ? parts.join(' · ') : '+ Add timer';
 }
 
+function nextTimerTime(unit) {
+  const now = new Date();
+  let best = null;
+  timerData.schedules.filter(s => s.enabled && s.units.includes(unit)).forEach(schedule => {
+    const [hours, minutes] = schedule.time.split(':').map(Number);
+    for (let offset = 0; offset < 8; offset += 1) {
+      const candidate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset, hours, minutes);
+      if (candidate > now && schedule.days.includes((candidate.getDay() + 6) % 7)) {
+        if (!best || candidate < best) best = candidate;
+        break;
+      }
+    }
+  });
+  timerData.countdowns.filter(c => c.units.includes(unit)).forEach(countdown => {
+    const candidate = new Date(now.getTime() + countdown.remaining * 1000);
+    if (!best || candidate < best) best = candidate;
+  });
+  if (!best) return null;
+  return `${String(best.getHours()).padStart(2, '0')}:${String(best.getMinutes()).padStart(2, '0')}`;
+}
+
+function renderGrid(list) {
+  if (!devices.length) {
+    const empty = el('div', 'empty');
+    empty.append(el('strong', '', 'No outlets configured'));
+    empty.append(el('div', '', 'Add an outlet below to get started.'));
+    list.append(empty);
+  }
+  devices.forEach(device => {
+    const on = device.state === true;
+    const wrap = el('div', 'tile-wrap');
+    wrap.dataset.unit = device.unit;
+    const tile = el('button', `tile${on ? ' on' : ''}`);
+    tile.type = 'button';
+    tile.role = 'switch';
+    tile.setAttribute('aria-checked', String(on));
+    tile.setAttribute('aria-label', device.name);
+    const top = el('div', 'tile-top');
+    const badge = el('span', 'tile-icon');
+    badge.append(icon('power', 20));
+    top.append(badge);
+    const next = nextTimerTime(device.unit);
+    if (next) {
+      const nextTimer = el('span', 'tile-next');
+      nextTimer.append(icon('clock', 14), document.createTextNode(next));
+      top.append(nextTimer);
+    }
+    const bottom = el('div', 'tile-bottom');
+    bottom.append(el('div', 'tile-name', device.name));
+    const status = on ? 'On' : device.state === false ? 'Off' : 'Unknown';
+    bottom.append(el('div', 'tile-status',
+      device.last_sent ? `${status} · sent ${device.last_sent}` : status));
+    tile.append(top, bottom);
+    tile.onclick = event => {
+      if (suppressTileClick) {
+        suppressTileClick = false;
+        event.stopPropagation();
+        return;
+      }
+      send(device.unit, on ? 'off' : 'on');
+    };
+    attachLongPress(tile, () => showDeviceMenu(wrap, device));
+    const menuButton = el('button', 'menu-button tile-menu', '⋯');
+    menuButton.type = 'button';
+    menuButton.setAttribute('aria-label', `Options for ${device.name}`);
+    menuButton.onclick = () => showDeviceMenu(wrap, device);
+    wrap.append(tile, menuButton);
+    list.append(wrap);
+  });
+  const add = el('button', 'tile-add');
+  add.type = 'button';
+  add.append(el('span', 'tile-add-plus', '+'), document.createTextNode(' Add outlet'));
+  add.onclick = openPairModal;
+  list.append(add);
+}
+
+function attachLongPress(node, onLongPress) {
+  let timer = null;
+  let startX = 0;
+  let startY = 0;
+  const cancel = () => { clearTimeout(timer); timer = null; };
+  node.addEventListener('pointerdown', event => {
+    if (event.button > 0) return;
+    startX = event.clientX;
+    startY = event.clientY;
+    suppressTileClick = false;
+    cancel();
+    timer = setTimeout(() => {
+      timer = null;
+      suppressTileClick = true;
+      onLongPress();
+    }, LONG_PRESS_MS);
+  });
+  node.addEventListener('pointermove', event => {
+    if (timer && Math.hypot(event.clientX - startX, event.clientY - startY) > 10) cancel();
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(type => node.addEventListener(type, cancel));
+  node.addEventListener('contextmenu', event => event.preventDefault());
+}
+
 function renderDevices() {
   const list = document.getElementById('outlet-list');
   while (list.firstChild) list.removeChild(list.firstChild);
+  const grid = viewMode === 'grid' && !reorderMode;
+  list.classList.toggle('grid', grid);
+  document.body.classList.toggle('view-grid', grid);
   const onCount = devices.filter(d => d.state === true).length;
   document.getElementById('page-title').textContent = reorderMode ? 'Reorder' : 'Nexa Control';
   document.getElementById('summary').textContent = reorderMode
     ? 'Drag the handle or use the arrows'
     : `${devices.length} outlet${devices.length === 1 ? '' : 's'} · ${onCount} on`;
-  document.getElementById('all-off').hidden = reorderMode;
+  document.getElementById('all-off').hidden = reorderMode || grid;
   document.getElementById('reorder-done').hidden = !reorderMode;
-  document.getElementById('add-outlet').hidden = reorderMode;
+  document.getElementById('view-switch').hidden = reorderMode;
+  document.querySelectorAll('[data-view]').forEach(button => {
+    button.setAttribute('aria-pressed', String(button.dataset.view === viewMode));
+  });
+  document.getElementById('add-outlet').hidden = reorderMode || grid;
+  document.getElementById('bottom-bar').hidden = !grid;
+  document.getElementById('timer-count').textContent =
+    timerData.schedules.length + timerData.countdowns.length;
+  if (grid) {
+    renderGrid(list);
+    return;
+  }
   if (!devices.length) {
     const empty = el('div', 'empty');
     empty.append(el('strong', '', 'No outlets configured'));
@@ -345,9 +504,23 @@ function fmtDays(days) {
   return days.map(day => DAY_NAMES[day]).join(', ');
 }
 
-function openTimerSheet(device) {
-  timerUnit = device.unit;
-  document.getElementById('timer-sheet-title').textContent = `${device.name} timers`;
+function unitNames(units) {
+  return units.map(unit => devices.find(d => d.unit === unit)?.name || `Unit ${unit}`);
+}
+
+function tagRow(units) {
+  const tags = el('div', 'tags');
+  const names = unitNames(units);
+  names.slice(0, 2).forEach(name => tags.append(el('span', 'tag', name)));
+  if (names.length > 2) tags.append(el('span', 'tag', `+${names.length - 2}`));
+  return tags;
+}
+
+function openTimerSheet(device = null) {
+  timerUnit = device ? device.unit : null;
+  timerSheetOpen = true;
+  document.getElementById('timer-sheet-title').textContent =
+    device ? `${device.name} timers` : 'All timers';
   renderTimerSheet();
   document.getElementById('timer-sheet').hidden = false;
 }
@@ -355,34 +528,43 @@ function openTimerSheet(device) {
 function renderTimerSheet() {
   const list = document.getElementById('timer-list');
   while (list.firstChild) list.removeChild(list.firstChild);
-  const countdowns = timerData.countdowns.filter(c => c.unit === timerUnit);
-  const schedules = timerData.schedules.filter(s => s.unit === timerUnit);
+  const inScope = timer => timerUnit === null || timer.units.includes(timerUnit);
+  const countdowns = timerData.countdowns.filter(inScope);
+  const schedules = timerData.schedules.filter(inScope)
+    .sort((a, b) => a.time.localeCompare(b.time));
   if (!countdowns.length && !schedules.length) {
     list.append(el('div', 'empty', 'No timers yet'));
     return;
   }
   countdowns.forEach(countdown => {
     const row = el('div', 'timer-row');
-    const info = el('div');
-    info.append(el('div', 'timer-time', `Turns ${countdown.action === 'on' ? 'on' : 'off'} in ${fmtRemaining(countdown.remaining)}`));
-    info.append(el('div', 'timer-action', 'Countdown'));
+    const info = el('div', 'timer-info');
+    info.append(el('div', 'timer-label', 'COUNTDOWN'));
+    info.append(el('div', 'timer-time countdown-text',
+      `Turns ${countdown.action === 'on' ? 'on' : 'off'} in ${fmtRemaining(countdown.remaining)}`));
+    info.append(tagRow(countdown.units));
     const cancel = el('button', 'secondary', 'Cancel');
-    cancel.onclick = async () => {
-      await api('DELETE', `/api/countdowns/${countdown.id}`);
-      await refreshTimers();
-      showToast('Timer cancelled');
+    cancel.type = 'button';
+    cancel.onclick = async event => {
+      event.stopPropagation();
+      try {
+        await api('DELETE', `/api/countdowns/${countdown.id}`);
+        await refreshTimers();
+        showToast('Timer cancelled');
+      } catch (error) { showToast(`Failed: ${error.message}`); }
     };
     row.append(info, cancel);
     row.onclick = () => openEditor('countdown', countdown);
     list.append(row);
   });
   schedules.forEach(schedule => {
-    const row = el('div', `timer-row ${schedule.enabled ? '' : 'muted'}`);
+    const row = el('div', `timer-row${schedule.enabled ? '' : ' is-off'}`);
     row.tabIndex = 0;
     row.setAttribute('role', 'button');
-    const info = el('div');
+    const info = el('div', 'timer-info');
     info.append(el('div', 'timer-time', schedule.time));
     info.append(el('div', 'timer-action', `Turns ${schedule.action === 'on' ? 'on' : 'off'} · ${fmtDays(schedule.days).toLowerCase()}`));
+    info.append(tagRow(schedule.units));
     const toggle = el('button', 'switch');
     toggle.type = 'button';
     toggle.role = 'switch';
@@ -390,29 +572,84 @@ function renderTimerSheet() {
     toggle.setAttribute('aria-label', `${schedule.enabled ? 'Disable' : 'Enable'} schedule`);
     toggle.onclick = async event => {
       event.stopPropagation();
-      await api('POST', `/api/schedules/${schedule.id}/toggle`);
-      await refreshTimers();
+      try {
+        await api('POST', `/api/schedules/${schedule.id}/toggle`);
+        await refreshTimers();
+      } catch (error) { showToast(`Failed: ${error.message}`); }
     };
     row.append(info, toggle);
     row.onclick = () => openEditor('schedule', schedule);
     row.onkeydown = event => {
-      if (event.key === 'Enter' || event.key === ' ') openEditor('schedule', schedule);
+      if (event.target === row && (event.key === 'Enter' || event.key === ' ')) {
+        event.preventDefault();
+        openEditor('schedule', schedule);
+      }
     };
     list.append(row);
   });
 }
 
 function openEditor(mode, timer = null) {
-  editing = timer ? {...timer, mode} : {unit: timerUnit, mode};
+  editing = timer ? {...timer, mode} : {mode};
+  editorUnits = timer
+    ? timer.units.filter(unit => devices.some(d => d.unit === unit))
+    : timerUnit !== null ? [timerUnit] : devices.length === 1 ? [devices[0].unit] : [];
   document.getElementById('editor-title').textContent = timer ? 'Edit timer' : 'Add timer';
   setSegment('mode', mode);
+  document.querySelectorAll('[data-mode]').forEach(button => { button.disabled = Boolean(timer); });
   setSegment('action', timer?.action || 'on');
   document.getElementById('timer-minutes').value =
     timer?.minutes || (timer ? Math.max(1, Math.ceil(timer.remaining / 60)) : 30);
   document.getElementById('timer-time').value = timer?.time || '18:00';
   setDays(timer?.days || [0, 1, 2, 3, 4, 5, 6]);
+  renderOutletChips();
   document.getElementById('delete-timer').hidden = !timer;
   document.getElementById('editor-sheet').hidden = false;
+}
+
+function renderOutletChips() {
+  const box = document.getElementById('timer-outlets');
+  while (box.firstChild) box.removeChild(box.firstChild);
+  const makeChip = (label, onclick) => {
+    const chip = el('button', 'outlet-chip');
+    chip.type = 'button';
+    const check = el('span', 'chip-check');
+    check.append(icon('check', 16));
+    chip.append(check, el('span', 'chip-label', label));
+    chip.onclick = onclick;
+    box.append(chip);
+    return chip;
+  };
+  const allChip = makeChip('Select all', () => {
+    editorUnits = editorUnits.length === devices.length ? [] : devices.map(d => d.unit);
+    updateOutletChips();
+  });
+  allChip.dataset.all = 'true';
+  devices.forEach(device => {
+    const chip = makeChip(device.name, () => {
+      editorUnits = editorUnits.includes(device.unit)
+        ? editorUnits.filter(unit => unit !== device.unit)
+        : [...editorUnits, device.unit];
+      updateOutletChips();
+    });
+    chip.dataset.unit = device.unit;
+  });
+  updateOutletChips();
+}
+
+function updateOutletChips() {
+  const allSelected = devices.length > 0 && editorUnits.length === devices.length;
+  document.querySelectorAll('#timer-outlets .outlet-chip').forEach(chip => {
+    const selected = chip.dataset.all ? allSelected : editorUnits.includes(Number(chip.dataset.unit));
+    chip.setAttribute('aria-pressed', String(selected));
+    chip.querySelector('.chip-check').hidden = !selected;
+  });
+  const count = editorUnits.length;
+  document.getElementById('outlets-count').textContent = `${count} selected`;
+  document.getElementById('outlets-hint').hidden = count > 0;
+  const save = document.getElementById('save-timer');
+  save.disabled = count === 0;
+  save.textContent = count ? `Save timer · ${count} outlet${count === 1 ? '' : 's'}` : 'Save timer';
 }
 
 function setSegment(type, value) {
@@ -421,7 +658,8 @@ function setSegment(type, value) {
   });
   if (type === 'mode') {
     document.getElementById('countdown-editor').hidden = value !== 'countdown';
-    document.getElementById('schedule-editor').hidden = value !== 'schedule';
+    document.getElementById('schedule-time-editor').hidden = value !== 'schedule';
+    document.getElementById('schedule-days-editor').hidden = value !== 'schedule';
   }
 }
 
@@ -448,14 +686,16 @@ async function saveTimer(event) {
   event.preventDefault();
   const mode = document.querySelector('[data-mode][aria-pressed="true"]').dataset.mode;
   const action = document.querySelector('[data-action][aria-pressed="true"]').dataset.action;
+  const units = [...editorUnits];
+  if (!units.length) return;
   try {
     if (mode === 'countdown') {
       if (editing.id) await api('DELETE', `/api/countdowns/${editing.id}`);
-      await api('POST', '/api/countdowns', {unit: editing.unit, action, minutes: Number.parseInt(document.getElementById('timer-minutes').value, 10)});
+      await api('POST', '/api/countdowns', {units, action, minutes: Number.parseInt(document.getElementById('timer-minutes').value, 10)});
     } else {
       const days = [...document.querySelectorAll('#timer-days button')].map((button, index) => button.getAttribute('aria-pressed') === 'true' ? index : null).filter(index => index !== null);
-      const payload = {unit: editing.unit, action, time: document.getElementById('timer-time').value, days};
-      if (editing.id) await api('PATCH', `/api/schedules/${editing.id}`, payload);
+      const payload = {units, action, time: document.getElementById('timer-time').value, days};
+      if (editing.id) await api('PUT', `/api/schedules/${editing.id}`, payload);
       else await api('POST', '/api/schedules', payload);
     }
     closeOverlay('editor-sheet');
@@ -514,6 +754,14 @@ async function refresh() {
 
 document.getElementById('add-outlet').onclick = openPairModal;
 document.getElementById('all-off').onclick = allOff;
+document.getElementById('all-off-bar').onclick = allOff;
+document.getElementById('open-timers').onclick = () => openTimerSheet();
+document.querySelectorAll('[data-view]').forEach(button => {
+  button.onclick = () => setView(button.dataset.view);
+});
+document.querySelector('[data-view="list"]').append(icon('list', 22));
+document.querySelector('[data-view="grid"]').append(icon('grid', 22));
+document.getElementById('timers-icon').append(icon('clock', 20));
 document.getElementById('reorder-done').onclick = () => leaveReorderMode(true);
 document.getElementById('pair-form').onsubmit = pairOutlet;
 document.getElementById('rename-form').onsubmit = saveDeviceName;
@@ -553,13 +801,14 @@ document.querySelectorAll('.overlay').forEach(overlay => {
 });
 document.querySelectorAll('.sheet').forEach(sheet => {
   let startY = 0;
-  sheet.ontouchstart = event => { startY = event.touches[0].clientY; };
+  sheet.ontouchstart = event => { startY = sheet.scrollTop > 0 ? Infinity : event.touches[0].clientY; };
   sheet.ontouchend = event => {
     if (event.changedTouches[0].clientY - startY > 60) closeOverlay(sheet.parentElement.id);
   };
 });
 
 buildDays();
+renderDevices();
 refresh().catch(error => showToast(error.message));
 setInterval(refreshTimers, 15000);
 setInterval(refresh, 15000);

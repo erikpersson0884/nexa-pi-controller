@@ -16,17 +16,32 @@
 <body>
 <main>
   <header class="topbar">
-    <div>
+    <div class="topbar-title">
       <h1 id="page-title">Nexa Control</h1>
       <p id="summary" class="summary">0 outlets · 0 on</p>
     </div>
-    <button id="all-off" class="secondary" type="button">All off</button>
-    <button id="reorder-done" class="primary" type="button" hidden>Done</button>
+    <div class="topbar-actions">
+      <button id="all-off" class="secondary" type="button">All off</button>
+      <button id="reorder-done" class="primary" type="button" hidden>Done</button>
+      <div id="view-switch" class="view-switch" role="group" aria-label="Layout">
+        <button type="button" data-view="list" aria-label="List view" aria-pressed="true"></button>
+        <button type="button" data-view="grid" aria-label="Grid view" aria-pressed="false"></button>
+      </div>
+    </div>
   </header>
   <section id="outlet-list" aria-live="polite"></section>
   <button id="add-outlet" class="add-card" type="button">＋ Add outlet</button>
   <div id="reorder-announcement" class="sr-only" aria-live="polite"></div>
 </main>
+
+<nav id="bottom-bar" class="bottom-bar" aria-label="Quick actions" hidden>
+  <button id="open-timers" class="timers-button" type="button">
+    <span id="timers-icon" class="icon-slot"></span>
+    <span>Timers</span>
+    <span id="timer-count" class="badge">0</span>
+  </button>
+  <button id="all-off-bar" class="secondary" type="button">All off</button>
+</nav>
 
 <div id="pair-modal" class="overlay" hidden>
   <form id="pair-form" class="dialog">
@@ -78,9 +93,11 @@
   <section class="sheet" aria-labelledby="timer-sheet-title">
     <div class="sheet-handle"></div>
     <button class="close-button" type="button" data-close="timer-sheet" aria-label="Close">×</button>
-    <h2 id="timer-sheet-title">Timers</h2>
+    <h2 id="timer-sheet-title">All timers</h2>
     <div id="timer-list"></div>
-    <button id="sheet-add-timer" class="primary full" type="button">＋ Add timer</button>
+    <div class="sheet-footer">
+      <button id="sheet-add-timer" class="add-timer" type="button">＋ Add timer</button>
+    </div>
   </section>
 </div>
 
@@ -107,9 +124,19 @@
       </div>
       <input id="timer-minutes" type="number" min="1" max="1440" value="30">
     </div>
-    <div id="schedule-editor" hidden>
+    <div id="schedule-time-editor" hidden>
       <label for="timer-time">Time</label>
       <input id="timer-time" type="time" value="18:00">
+    </div>
+    <div class="outlets-section">
+      <div class="section-head">
+        <span id="outlets-heading" class="field-label">Outlets</span>
+        <span id="outlets-count" class="selected-count" aria-live="polite">0 selected</span>
+      </div>
+      <div id="timer-outlets" class="outlet-chips" role="group" aria-labelledby="outlets-heading"></div>
+      <p id="outlets-hint" class="hint" hidden>Select at least one outlet</p>
+    </div>
+    <div id="schedule-days-editor" hidden>
       <span class="field-label">Days</span>
       <div id="timer-days" class="day-pills"></div>
       <div class="quick-chips">
@@ -119,9 +146,9 @@
       </div>
     </div>
     <div class="dialog-actions">
-      <button id="delete-timer" class="danger" type="button" hidden>Delete</button>
-      <button class="primary full" type="submit">Save timer</button>
+      <button id="save-timer" class="primary full" type="submit">Save timer</button>
     </div>
+    <button id="delete-timer" class="text-danger" type="button" hidden>Delete timer</button>
   </form>
 </div>
 
