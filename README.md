@@ -134,6 +134,7 @@ Create a `.env` file in the project directory for required secrets and local ove
 | `HOST` | `127.0.0.1` | Network interface to bind to. Use `0.0.0.0` only when the app must be reachable from other devices |
 | `DATA_DIR` | project `data/` folder (`/data` in Docker) | Where `nexa_state.json`, `nexa_devices.json` and `nexa_timers.json` are stored |
 | `GPIO_MODE` | `hardware` | Set to `mock` on a development computer without GPIO hardware. Pairing and switching are simulated |
+| `LG_WD` | private temporary directory | Optional lgpio working directory. If set, it must exist, be writable, and be protected from other users; lgpio changes the process working directory to this location |
 | `GPIO_CHIP` | `15` | GPIO chip number for the Pi header (`pinctrl-rp1` on the default setup) |
 | `TX_PIN` | `17` | BCM GPIO output connected to the transmitter DATA pin (physical pin 11) |
 | `RX_PIN` | `27` | BCM GPIO input connected to the receiver DATA output (physical pin 13) |
@@ -163,6 +164,7 @@ Hardware settings can be overridden with environment variables:
 |---|---|
 | `python3 -m nexa_pi_controller` | Start the web UI |
 | `PYTHONPATH=. python3 -m unittest discover -s tests -v` | Run the test suite |
+| `node --test tests/test_service_worker.js` | Run the service worker tests (Node.js 22+) |
 | `PYTHONPATH=. python3 -m coverage run --source=nexa_pi_controller -m unittest discover -s tests && python3 -m coverage report` | Run tests and print a coverage report |
 | `docker compose up --build` | Build and start the container |
 | `docker compose logs -f` | Follow the container logs |
@@ -175,6 +177,12 @@ Tests use Python's built-in `unittest` framework and are located in `tests/`. Th
 
 ```sh
 PYTHONPATH=. python3 -m unittest discover -s tests -v
+```
+
+The service worker tests require Node.js 22 or newer:
+
+```sh
+node --test tests/test_service_worker.js
 ```
 
 To measure coverage, run:

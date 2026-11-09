@@ -45,6 +45,7 @@ class WebUiTestCase(unittest.TestCase):
         )
         self.assertIn('id="outlet-list"', html)
         self.assertIn('id="timer-sheet"', html)
+        self.assertIn('<h2 id="timer-sheet-title">Timers</h2>', html)
         self.assertIn('id="editor-sheet"', html)
         self.assertIn('id="pair-modal"', html)
         self.assertIn('id="pair-name"', html)

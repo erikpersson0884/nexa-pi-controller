@@ -3,11 +3,7 @@
 import threading
 import time
 
-try:
-    import lgpio
-except ImportError:
-    lgpio = None
-
+from ._gpio import lgpio
 from .config import CHIP, GPIO_MODE, PIN, REPEAT, T, TX_ID
 
 tx_lock = threading.Lock()

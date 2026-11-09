@@ -288,7 +288,7 @@ async function saveDeviceName(event) {
   event.preventDefault();
   const name = document.getElementById('rename-name').value.trim();
   if (!name || !editingDevice) return;
-  const unit = parseInt(document.getElementById('rename-unit').value, 10);
+  const unit = Number.parseInt(document.getElementById('rename-unit').value, 10);
   try {
     await api('PATCH', `/api/devices/${editingDevice.unit}`, {name, unit});
     closeOverlay('rename-modal');
@@ -451,7 +451,7 @@ async function saveTimer(event) {
   try {
     if (mode === 'countdown') {
       if (editing.id) await api('DELETE', `/api/countdowns/${editing.id}`);
-      await api('POST', '/api/countdowns', {unit: editing.unit, action, minutes: parseInt(document.getElementById('timer-minutes').value, 10)});
+      await api('POST', '/api/countdowns', {unit: editing.unit, action, minutes: Number.parseInt(document.getElementById('timer-minutes').value, 10)});
     } else {
       const days = [...document.querySelectorAll('#timer-days button')].map((button, index) => button.getAttribute('aria-pressed') === 'true' ? index : null).filter(index => index !== null);
       const payload = {unit: editing.unit, action, time: document.getElementById('timer-time').value, days};
@@ -489,7 +489,7 @@ async function pairOutlet(event) {
   try {
     await api('POST', '/api/pair', {
       name: document.getElementById('pair-name').value.trim(),
-      unit: parseInt(document.getElementById('pair-unit').value, 10),
+      unit: Number.parseInt(document.getElementById('pair-unit').value, 10),
     });
     closeOverlay('pair-modal');
     await refresh();
@@ -535,7 +535,7 @@ document.querySelectorAll('[data-days]').forEach(button => button.onclick = () =
 });
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && reorderMode) {
-    leaveReorderMode(false);
+    leaveReorderMode(false).catch(error => showToast(`Failed: ${error.message}`));
     return;
   }
   if (event.key === 'Escape') {

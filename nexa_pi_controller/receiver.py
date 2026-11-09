@@ -6,13 +6,7 @@ import queue
 import threading
 import time
 
-os.environ.setdefault("LG_WD", "/tmp")
-
-try:
-    import lgpio
-except ImportError:
-    lgpio = None
-
+from ._gpio import lgpio
 from .config import CHIP, GPIO_MODE, RX_PIN, TX_ID
 
 ON_BIT = os.getenv("ON_BIT", "1")

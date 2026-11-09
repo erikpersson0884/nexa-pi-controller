@@ -28,13 +28,15 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const pathname = new URL(event.request.url).pathname;
   if (!pathname.startsWith('/static/')) return;
+  const networkResponse = fetch(event.request);
   event.respondWith(
-    fetch(event.request)
-      .then(response => {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
-        return response;
-      })
+    networkResponse
       .catch(() => caches.match(event.request).then(response => response || caches.match('/')))
+  );
+  event.waitUntil(
+    networkResponse.then(response => {
+      const copy = response.clone();
+      return caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
+    }, () => undefined).catch(error => console.error('Failed to cache static asset:', error))
   );
 });
