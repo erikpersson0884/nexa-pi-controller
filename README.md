@@ -173,7 +173,7 @@ Hardware settings can be overridden with environment variables:
 
 # Testing
 
-Tests use Python's built-in `unittest` framework and are located in `tests/`. They cover the web UI, favicon and logo assets, device listing, outlet switching, pairing, countdowns, schedules, and API validation.
+Tests use Python's built-in `unittest` framework and are located in `tests/`. They cover the web UI and API, persistence, timer scheduling, radio transmission, and receiver decoding. GPIO operations are mocked, so no Raspberry Pi hardware is required.
 
 ```sh
 PYTHONPATH=. python3 -m unittest discover -s tests -v
