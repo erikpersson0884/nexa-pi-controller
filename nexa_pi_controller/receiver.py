@@ -13,7 +13,7 @@ try:
 except ImportError:
     lgpio = None
 
-from config import CHIP, GPIO_MODE, RX_PIN, TX_ID
+from .config import CHIP, GPIO_MODE, RX_PIN, TX_ID
 
 ON_BIT = os.getenv("ON_BIT", "1")
 

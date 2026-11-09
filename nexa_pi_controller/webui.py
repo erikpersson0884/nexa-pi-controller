@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # Web UI with outlet pairing and timers for Nexa outlets on a Raspberry Pi 5
-# Run: python3 webui.py   then open http://<pi-ip>:8080
+# Run from the project root: python -m nexa_pi_controller.webui
+# Then open http://<pi-ip>:5000
 
 import re
 import os
@@ -17,11 +18,11 @@ from flask import Flask, jsonify, render_template, request, send_from_directory
 from flask import redirect, session, url_for
 from flask_wtf.csrf import CSRFProtect
 
-import config
-import radio
-import receiver
-import scheduler as scheduler_module
-import storage
+from . import config
+from . import radio
+from . import receiver
+from . import scheduler as scheduler_module
+from . import storage
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +46,12 @@ TIMER_FILE = config.TIMER_FILE
 
 tx_lock = radio.tx_lock
 timer_lock = threading.Lock()   # protects the timers dict
-app = Flask(__name__)
+CONTROLLER_DIR = os.path.dirname(os.path.abspath(__file__))
+app = Flask(
+    __name__,
+    template_folder=os.path.join(CONTROLLER_DIR, "templates"),
+    static_folder=os.path.join(CONTROLLER_DIR, "static"),
+)
 if not SECRET_KEY:
     raise RuntimeError("SECRET_KEY must be configured")
 app.config.update(

@@ -8,7 +8,7 @@ try:
 except ImportError:
     lgpio = None
 
-from config import CHIP, GPIO_MODE, PIN, REPEAT, T, TX_ID
+from .config import CHIP, GPIO_MODE, PIN, REPEAT, T, TX_ID
 
 tx_lock = threading.Lock()
 

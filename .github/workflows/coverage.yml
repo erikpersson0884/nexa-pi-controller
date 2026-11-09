@@ -24,7 +24,7 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          python -m coverage run --source=webui -m unittest discover -s tests
+          PYTHONPATH=nexa-pi-controller python -m coverage run --source=nexa-pi-controller -m unittest discover -s tests
           python -m coverage report -m | tee coverage-report.txt
 
       - name: Calculate coverage

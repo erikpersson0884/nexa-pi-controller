@@ -20,7 +20,7 @@ COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() == "true"
 PORT = int(os.getenv("PORT", 8080))
 HOST = os.getenv("HOST", "127.0.0.1")
 
-PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.getenv("DATA_DIR", os.path.join(PROJECT_DIR, "data"))
 STATE_FILE = os.path.join(DATA_DIR, "nexa_state.json")
 DEVICES_FILE = os.path.join(DATA_DIR, "nexa_devices.json")

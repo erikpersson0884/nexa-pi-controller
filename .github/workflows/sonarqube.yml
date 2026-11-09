@@ -31,7 +31,7 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          python -m coverage run --source=. -m unittest discover -s tests
+          PYTHONPATH=nexa-pi-controller python -m coverage run --source=nexa-pi-controller -m unittest discover -s tests
           python -m coverage xml -o coverage.xml
 
       - name: Run SonarQube scan
@@ -41,7 +41,9 @@ jobs:
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
         with:
           args: >
-            -Dsonar.sources=.
+            -Dsonar.projectKey=nexa-web
+            -Dsonar.projectName=nexa-web
+            -Dsonar.sources=nexa-pi-controller
             -Dsonar.tests=tests
             -Dsonar.test.inclusions=tests/**/*.py
             -Dsonar.python.coverage.reportPaths=coverage.xml

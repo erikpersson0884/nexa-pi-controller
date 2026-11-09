@@ -3,7 +3,7 @@
 import json
 import os
 
-from config import DEVICES_FILE, STATE_FILE, TIMER_FILE
+from .config import DEVICES_FILE, STATE_FILE, TIMER_FILE
 
 
 def _ensure_data_dir():
