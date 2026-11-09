@@ -98,10 +98,10 @@ Then install and run:
 
 ```sh
 # Clone the repository
-git clone https://github.com/erikpersson0884/nexa_pi_controller.git
+git clone https://github.com/erikpersson0884/nexa-pi-controller.git
 
 # Navigate into the project directory
-cd nexa_pi_controller
+cd nexa-pi-controller
 
 # Install dependencies
 python3 -m pip install -r requirements.txt
@@ -110,7 +110,7 @@ python3 -m pip install -r requirements.txt
 gpiodetect
 
 # Start the app
-PYTHONPATH=nexa_pi_controller python3 nexa_pi_controller/webui.py
+python3 -m nexa_pi_controller
 ```
 
 The app runs on `http://127.0.0.1:8080` by default. To access it from another device on the network, set `HOST=0.0.0.0` in `.env`, then open `http://<pi-ip>:8080` (or `http://raspberrypi.local:8080`). Set `GPIO_CHIP` in `.env` if `gpiodetect` shows a different number than 15.
@@ -161,9 +161,9 @@ Hardware settings can be overridden with environment variables:
 
 | Command | What it does |
 |---|---|
-| `PYTHONPATH=nexa_pi_controller python3 nexa_pi_controller/webui.py` | Start the web UI |
-| `PYTHONPATH=nexa_pi_controller python3 -m unittest discover -s tests -v` | Run the test suite |
-| `PYTHONPATH=nexa_pi_controller python3 -m coverage run --source=nexa_pi_controller -m unittest discover -s tests && python3 -m coverage report` | Run tests and print a coverage report |
+| `python3 -m nexa_pi_controller` | Start the web UI |
+| `PYTHONPATH=. python3 -m unittest discover -s tests -v` | Run the test suite |
+| `PYTHONPATH=. python3 -m coverage run --source=nexa_pi_controller -m unittest discover -s tests && python3 -m coverage report` | Run tests and print a coverage report |
 | `docker compose up --build` | Build and start the container |
 | `docker compose logs -f` | Follow the container logs |
 | `docker compose down` | Stop the container |
@@ -174,13 +174,13 @@ Hardware settings can be overridden with environment variables:
 Tests use Python's built-in `unittest` framework and are located in `tests/`. They cover the web UI, favicon and logo assets, device listing, outlet switching, pairing, countdowns, schedules, and API validation.
 
 ```sh
-PYTHONPATH=nexa_pi_controller python3 -m unittest discover -s tests -v
+PYTHONPATH=. python3 -m unittest discover -s tests -v
 ```
 
 To measure coverage, run:
 
 ```sh
-PYTHONPATH=nexa_pi_controller python3 -m coverage run --source=nexa_pi_controller -m unittest discover -s tests
+PYTHONPATH=. python3 -m coverage run --source=nexa_pi_controller -m unittest discover -s tests
 python3 -m coverage report
 ```
 
@@ -207,7 +207,7 @@ The project can optionally be analyzed with SonarQube. This requires access to y
 4. Generate coverage, then run the analysis:
 
    ```sh
-   PYTHONPATH=nexa_pi_controller python3 -m coverage run --source=nexa_pi_controller -m unittest discover -s tests
+   PYTHONPATH=. python3 -m coverage run --source=nexa_pi_controller -m unittest discover -s tests
    python3 -m coverage xml
    sonar-scanner
    ```
@@ -270,21 +270,21 @@ If you want to contribute, follow these steps:
 
 
 <!-- Repo info shields -->
-[last-commit-shield]: https://img.shields.io/github/last-commit/erikpersson0884/nexa_pi_controller/main?style=for-the-badge&cacheSeconds=30
-[last-commit-url]: https://github.com/erikpersson0884/nexa_pi_controller/commits/main
+[last-commit-shield]: https://img.shields.io/github/last-commit/erikpersson0884/nexa-pi-controller/main?style=for-the-badge&cacheSeconds=30
+[last-commit-url]: https://github.com/erikpersson0884/nexa-pi-controller/commits/main
 
-[repo-size-shield]: https://img.shields.io/github/repo-size/erikpersson0884/nexa_pi_controller?style=for-the-badge&cacheSeconds=60
-[repo-size-url]: https://github.com/erikpersson0884/nexa_pi_controller
+[repo-size-shield]: https://img.shields.io/github/repo-size/erikpersson0884/nexa-pi-controller?style=for-the-badge&cacheSeconds=60
+[repo-size-url]: https://github.com/erikpersson0884/nexa-pi-controller
 
 [author-shield]: https://img.shields.io/badge/Author-Erik-purple?style=for-the-badge
 [author-url]: https://github.com/erikpersson0884
 
-[build-shield]: https://img.shields.io/github/actions/workflow/status/erikpersson0884/nexa_pi_controller/build-and-push.yml?branch=main&style=for-the-badge
-[build-url]: https://github.com/erikpersson0884/nexa_pi_controller/actions
+[build-shield]: https://img.shields.io/github/actions/workflow/status/erikpersson0884/nexa-pi-controller/build-and-push.yml?branch=main&style=for-the-badge
+[build-url]: https://github.com/erikpersson0884/nexa-pi-controller/actions
 
 <!-- Test coverage shield (requires a workflow that writes .github/coverage.json to a "coverage" branch) -->
-[coverage-shield]: https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/erikpersson0884/nexa_pi_controller/coverage/.github/coverage.json&style=for-the-badge&v=2
-[coverage-url]: https://github.com/erikpersson0884/nexa_pi_controller/actions
+[coverage-shield]: https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/erikpersson0884/nexa-pi-controller/coverage/.github/coverage.json&style=for-the-badge&v=2
+[coverage-url]: https://github.com/erikpersson0884/nexa-pi-controller/actions
 
 
 

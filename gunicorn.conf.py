@@ -6,6 +6,6 @@ errorlog = "-"
 
 
 def post_worker_init(worker):
-    import webui
+    from nexa_pi_controller import webui
 
     webui.start_background_services()

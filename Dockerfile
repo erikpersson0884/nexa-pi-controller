@@ -13,5 +13,5 @@ COPY gunicorn.conf.py /app/
 
 # lgpio writes small temporary files to the working directory, so it must be writable
 WORKDIR /app
-ENV PYTHONPATH=/app/nexa_pi_controller
-CMD ["gunicorn", "-c", "/app/gunicorn.conf.py", "webui:app"]
+ENV PYTHONPATH=/app
+CMD ["gunicorn", "-c", "/app/gunicorn.conf.py", "nexa_pi_controller.webui:app"]
