@@ -12,7 +12,7 @@ import threading
 import time
 import uuid
 from collections import deque
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from flask import Flask, jsonify, render_template, request, send_from_directory
 from flask import redirect, session, url_for
@@ -56,6 +56,7 @@ if not SECRET_KEY:
     raise RuntimeError("SECRET_KEY must be configured")
 app.config.update(
     SECRET_KEY=SECRET_KEY,
+    PERMANENT_SESSION_LIFETIME=timedelta(days=config.SESSION_LIFETIME_DAYS),
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
     SESSION_COOKIE_SECURE=config.COOKIE_SECURE,
@@ -239,6 +240,7 @@ def login_submit():
     if not valid:
         return render_template("login.html", error="Invalid username or password", username=username), 401
     session.clear()
+    session.permanent = True
     session["authenticated"] = True
     next_url = request.form.get("next", "")
     destination = next_url if next_url.startswith("/") and not next_url.startswith("//") else url_for("index")

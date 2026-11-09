@@ -146,6 +146,7 @@ Create a `.env` file in the project directory for required secrets and local ove
 | `AUTH_USERNAME` | `admin` | Username required to sign in |
 | `AUTH_PASSWORD` | unset | Password used for login |
 | `COOKIE_SECURE` | `false` | Set to `true` when the app is served over HTTPS |
+| `SESSION_LIFETIME_DAYS` | `7` | How many days a login stays valid after your last activity |
 
 Hardware settings can be overridden with environment variables:
 

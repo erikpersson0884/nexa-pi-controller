@@ -17,6 +17,7 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 AUTH_USERNAME = os.getenv("AUTH_USERNAME", "admin")
 AUTH_PASSWORD = os.getenv("AUTH_PASSWORD")
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() == "true"
+SESSION_LIFETIME_DAYS = float(os.getenv("SESSION_LIFETIME_DAYS", 7))
 PORT = int(os.getenv("PORT", 8080))
 HOST = os.getenv("HOST", "127.0.0.1")
 
