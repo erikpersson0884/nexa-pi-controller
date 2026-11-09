@@ -12,7 +12,7 @@ class ReceiverTestCase(unittest.TestCase):
 
         self.assertEqual(
             receiver.decode_frame(bits),
-            (12345678, False, True, 4),
+            (12345679, False, True, 4),
         )
 
     def test_repeated_frame_is_required_and_debounced(self):
@@ -24,7 +24,7 @@ class ReceiverTestCase(unittest.TestCase):
             received.set()
 
         listener = receiver.Receiver(on_command)
-        bits = format(12345678, "026b") + "01" + format(4, "04b")
+        bits = format(12345679, "026b") + "01" + format(4, "04b")
 
         with patch.object(receiver, "GPIO_MODE", "mock"), \
                 patch.object(receiver.time, "monotonic", side_effect=[1.0, 1.1, 1.2]):
