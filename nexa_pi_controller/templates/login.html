@@ -17,9 +17,9 @@
         <p class="muted">Sign in to control your outlets.</p>
         {% if error %}<p class="auth-error">{{ error }}</p>{% endif %}
         <label for="username">Username</label>
-        <input id="username" name="username" type="text" autocomplete="username" required>
+        <input id="username" name="username" type="text" autocomplete="username" value="{{ username or '' }}" {{ 'autofocus' if not username }} required>
         <label for="password">Password</label>
-        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <input id="password" name="password" type="password" autocomplete="current-password" {{ 'autofocus' if username }} required>
         <button class="primary full" type="submit">Sign in</button>
     </form>
 </main>

@@ -237,7 +237,7 @@ def login_submit():
     except TypeError:
         valid = False
     if not valid:
-        return render_template("login.html", error="Invalid username or password"), 401
+        return render_template("login.html", error="Invalid username or password", username=username), 401
     session.clear()
     session["authenticated"] = True
     next_url = request.form.get("next", "")
