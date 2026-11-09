@@ -8,9 +8,9 @@ load_dotenv()
 
 CHIP = int(os.getenv("GPIO_CHIP", "15"))
 PIN = int(os.getenv("TX_PIN", "17"))
-TX_ID = 12345678
-T = 260e-6
-REPEAT = 6
+TX_ID = int(os.getenv("TX_ID", "12345678"))
+T = float(os.getenv("T", "260e-6"))
+REPEAT = int(os.getenv("REPEAT", "6"))
 GPIO_MODE = os.getenv("GPIO_MODE", "hardware").lower()
 RX_PIN = int(os.getenv("RX_PIN", "27"))
 SECRET_KEY = os.getenv("SECRET_KEY")

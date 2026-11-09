@@ -137,6 +137,9 @@ Create a `.env` file in the project directory for required secrets and local ove
 | `GPIO_CHIP` | `15` | GPIO chip number for the Pi header (`pinctrl-rp1` on the default setup) |
 | `TX_PIN` | `17` | BCM GPIO output connected to the transmitter DATA pin (physical pin 11) |
 | `RX_PIN` | `27` | BCM GPIO input connected to the receiver DATA output (physical pin 13) |
+| `TX_ID` | `12345678` | Nexa transmitter ID used when sending and filtering received commands |
+| `T` | `260e-6` | Base radio pulse duration in seconds |
+| `REPEAT` | `6` | Number of times each radio command is sent |
 | `TZ` | system time zone | Time zone used by schedules (set it in Docker) |
 | `SECRET_KEY` | required | Stable random secret used to sign sessions and CSRF tokens |
 | `AUTH_USERNAME` | `admin` | Username required to sign in |
@@ -150,6 +153,8 @@ Hardware settings can be overridden with environment variables:
 | `GPIO_CHIP` | `15` | GPIO chip of the Pi's header (`pinctrl-rp1` in `gpiodetect`) |
 | `TX_PIN` | `17` | BCM GPIO number the transmitter DATA pin is wired to |
 | `RX_PIN` | `27` | BCM GPIO number the receiver DATA pin is wired to |
+| `TX_ID` | `12345678` | Nexa transmitter ID used for radio commands |
+| `T` | `260e-6` | Base pulse duration in seconds used to encode radio commands |
 | `REPEAT` | `6` | How many times each command is sent |
 
 # Scripts
