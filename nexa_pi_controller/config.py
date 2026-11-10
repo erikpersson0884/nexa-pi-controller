@@ -16,6 +16,7 @@ RX_PIN = int(os.getenv("RX_PIN", "27"))
 SECRET_KEY = os.getenv("SECRET_KEY")
 AUTH_USERNAME = os.getenv("AUTH_USERNAME", "admin")
 AUTH_PASSWORD = os.getenv("AUTH_PASSWORD")
+API_KEY = os.getenv("API_KEY")
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() == "true"
 SESSION_LIFETIME_DAYS = float(os.getenv("SESSION_LIFETIME_DAYS", 7))
 PORT = int(os.getenv("PORT", 8080))

@@ -14,7 +14,7 @@ import uuid
 from collections import deque
 from datetime import datetime, timedelta
 
-from flask import Flask, jsonify, render_template, request, send_from_directory
+from flask import Flask, g, jsonify, render_template, request, send_from_directory
 from flask import redirect, session, url_for
 from flask_wtf.csrf import CSRFProtect
 
@@ -38,6 +38,7 @@ GPIO_MODE = config.GPIO_MODE
 SECRET_KEY = config.SECRET_KEY
 AUTH_USERNAME = config.AUTH_USERNAME
 AUTH_PASSWORD = config.AUTH_PASSWORD
+API_KEY = config.API_KEY
 PROJECT_DIR = config.PROJECT_DIR
 DATA_DIR = config.DATA_DIR
 STATE_FILE = config.STATE_FILE
@@ -60,6 +61,7 @@ app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
     SESSION_COOKIE_SECURE=config.COOKIE_SECURE,
+    WTF_CSRF_CHECK_DEFAULT=False,
 )
 csrf = CSRFProtect()
 csrf.init_app(app)
@@ -209,10 +211,44 @@ if GPIO_MODE == "mock":
 # ---------- Web page ----------
 
 @app.before_request
+def authenticate_api_key():
+    if not request.path.startswith("/api/"):
+        return None
+
+    authorization = request.headers.get("Authorization")
+    if authorization is not None:
+        scheme, separator, token = authorization.partition(" ")
+        if (
+            API_KEY
+            and separator
+            and scheme.lower() == "bearer"
+            and hmac.compare_digest(token, API_KEY)
+        ):
+            g.api_key_authenticated = True
+            return None
+        return jsonify(error="invalid API key"), 401
+
+    if not session.get("authenticated"):
+        return jsonify(error="authentication required"), 401
+    return None
+
+
+@app.before_request
+def protect_csrf():
+    if (
+        app.config.get("WTF_CSRF_ENABLED", True)
+        and not getattr(g, "api_key_authenticated", False)
+    ):
+        csrf.protect()
+
+
+@app.before_request
 def require_login():
     if request.endpoint in {"login", "login_submit", "static", "service_worker"}:
         return None
-    if not session.get("authenticated"):
+    if not session.get("authenticated") and not getattr(
+        g, "api_key_authenticated", False
+    ):
         if request.path.startswith("/api/"):
             return jsonify(error="authentication required"), 401
         return redirect(url_for("login", next=request.full_path))

@@ -50,6 +50,7 @@ This repository contains **only the controller app**. It requires a 433 MHz ASK/
 - Runs directly with Python or as a Docker container
 - Docker runs with Gunicorn as the production WSGI server
 - Login protection with username/password authentication and CSRF-protected sessions
+- Optional Bearer API key for trusted services that need to control the outlets
 
 ## Screenshots
 
@@ -145,8 +146,26 @@ Create a `.env` file in the project directory for required secrets and local ove
 | `SECRET_KEY` | required | Stable random secret used to sign sessions and CSRF tokens |
 | `AUTH_USERNAME` | `admin` | Username required to sign in |
 | `AUTH_PASSWORD` | unset | Password used for login |
+| `API_KEY` | unset | Optional shared Bearer token for API access; unset disables API-key access |
 | `COOKIE_SECURE` | `false` | Set to `true` when the app is served over HTTPS |
 | `SESSION_LIFETIME_DAYS` | `7` | How many days a login stays valid after your last activity |
+
+### API key access
+
+Set `API_KEY` in `.env` to a long, random secret. Generate one with:
+
+```sh
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+Services can then call the same API endpoints using an HTTP Bearer token, for example:
+
+```sh
+curl -X POST http://raspberrypi:8080/api/0/on \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+The initial API key grants the same access as a logged-in user, including switching outlets and managing configuration and timers. Keep it secret, and only expose the app over a trusted network or HTTPS. API permissions and separately managed keys can be added later.
 
 Hardware settings can be overridden with environment variables:
 

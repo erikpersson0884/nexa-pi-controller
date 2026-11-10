@@ -66,6 +66,46 @@ class WebUiTestCase(unittest.TestCase):
         response = self.client.get("/api/devices")
         self.assertEqual(response.status_code, 401)
 
+    def test_api_key_authenticates_api_requests_without_a_browser_session(self):
+        webui.API_KEY = "test-api-key"
+        self.addCleanup(setattr, webui, "API_KEY", None)
+        with self.client.session_transaction() as session:
+            session.clear()
+
+        response = self.client.get(
+            "/api/devices",
+            headers={"Authorization": "Bearer test-api-key"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_api_key_can_make_mutating_requests_without_a_csrf_token(self):
+        webui.API_KEY = "test-api-key"
+        self.addCleanup(setattr, webui, "API_KEY", None)
+        self.client.application.config["WTF_CSRF_ENABLED"] = True
+        with self.client.session_transaction() as session:
+            session.clear()
+
+        with patch.object(webui, "apply") as apply:
+            response = self.client.post(
+                "/api/0/on",
+                headers={"Authorization": "Bearer test-api-key"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        apply.assert_called_once_with(0, True)
+
+    def test_api_rejects_an_invalid_api_key(self):
+        webui.API_KEY = "test-api-key"
+        self.addCleanup(setattr, webui, "API_KEY", None)
+
+        response = self.client.get(
+            "/api/devices",
+            headers={"Authorization": "Bearer wrong-key"},
+        )
+
+        self.assertEqual(response.status_code, 401)
+
     def test_login_accepts_valid_credentials(self):
         with self.client.session_transaction() as session:
             session.clear()
