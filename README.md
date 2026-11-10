@@ -43,7 +43,7 @@ This repository contains **only the controller app**. It requires a 433 MHz ASK/
 - Switch outlets on and off from any device on your network
 - Pair new outlets from the web page ("Add outlet")
 - Choose an outlet number when pairing and change it later from the outlet edit menu
-- "All off" button
+- "All off" button (double-press within 400 ms to turn all outlets on instead)
 - Countdown timers ("turn off in 30 minutes")
 - Weekly schedules (time + days), which can be disabled or deleted
 - Timers, outlets and last-known states are saved to disk and survive restarts

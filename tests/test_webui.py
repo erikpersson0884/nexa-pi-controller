@@ -1,7 +1,7 @@
 import unittest
 import re
 import os
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
 os.environ.setdefault("AUTH_USERNAME", "admin")
@@ -158,6 +158,31 @@ class WebUiTestCase(unittest.TestCase):
         self.assertEqual(response.json, [
             {"unit": 0, "name": "Test outlet", "state": True},
         ])
+
+    def test_all_commands_transmit_and_update_each_configured_outlet(self):
+        webui.configured_devices = [
+            {"unit": 0, "name": "First"},
+            {"unit": 2, "name": "Second"},
+        ]
+        with patch.object(webui, "transmit") as transmit, \
+                patch.object(webui, "save_state"), \
+                patch.object(webui.time, "sleep"):
+            for action, on in (("off", False), ("on", True)):
+                with self.subTest(action=action):
+                    transmit.reset_mock()
+                    response = self.client.post(f"/api/all/{action}")
+                    self.assertEqual(response.status_code, 200)
+                    self.assertEqual(response.json, {"ok": True})
+                    self.assertEqual(transmit.call_args_list, [call(on, 0), call(on, 2)])
+                    self.assertEqual(webui.state, {0: on, 2: on})
+
+    def test_all_on_reports_transmission_errors(self):
+        with patch.object(webui, "transmit", side_effect=RuntimeError("Radio failed")):
+            response = self.client.post("/api/all/on")
+
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response.json, {"error": "Radio failed"})
+        self.assertEqual(webui.state, {})
 
     def test_received_command_updates_one_configured_outlet(self):
         with patch.object(webui, "save_state") as save_state:

@@ -46,6 +46,30 @@ function submit(window, form) {
   form.dispatchEvent(new window.Event('submit', {bubbles: true, cancelable: true}));
 }
 
+function controlAllOffTimer(window) {
+  const setTimeout = window.setTimeout.bind(window);
+  const clearTimeout = window.clearTimeout.bind(window);
+  let pending = null;
+  window.setTimeout = (callback, delay, ...args) => {
+    if (delay !== 400) return setTimeout(callback, delay, ...args);
+    pending = callback;
+    return -1;
+  };
+  window.clearTimeout = id => {
+    if (id === -1) pending = null;
+    else clearTimeout(id);
+  };
+  return {
+    fire() {
+      assert.ok(pending, 'expected a 400 ms all-off timer');
+      const callback = pending;
+      pending = null;
+      callback();
+    },
+    isPending: () => pending !== null,
+  };
+}
+
 test('renders devices and sends switch commands with CSRF protection', async t => {
   const {document, requests} = await setup(t, {devices: [
     {unit: 2, name: 'Desk lamp', state: false},
@@ -61,6 +85,58 @@ test('renders devices and sends switch commands with CSRF protection', async t =
   assert.equal(request.method, 'POST');
   assert.equal(request.headers['X-CSRFToken'], 'test-csrf');
   assert.equal(document.getElementById('toast').textContent, 'Command sent');
+});
+
+for (const [view, buttonId] of [['list', 'all-off'], ['grid', 'all-off-bar']]) {
+  test(`single and double All Off presses in ${view} view`, async t => {
+    const {window, document, requests} = await setup(t, {view});
+    const timer = controlAllOffTimer(window);
+    const button = document.getElementById(buttonId);
+    const commands = () => requests.filter(item => item.url.startsWith('/api/all/'));
+
+    button.click();
+    assert.equal(commands().length, 0);
+    timer.fire();
+    await settle();
+    assert.deepEqual(commands().map(item => item.url), ['/api/all/off']);
+    assert.equal(document.getElementById('toast').textContent, 'All off');
+
+    button.click();
+    button.click();
+    await settle();
+    assert.equal(timer.isPending(), false);
+    assert.deepEqual(commands().map(item => item.url), ['/api/all/off', '/api/all/on']);
+    assert.equal(commands()[1].headers['X-CSRFToken'], 'test-csrf');
+    assert.equal(document.getElementById('toast').textContent, 'All on');
+  });
+}
+
+test('all-outlet commands cannot overlap and failures allow retrying', async t => {
+  const {window, document, requests} = await setup(t);
+  const timer = controlAllOffTimer(window);
+  const originalFetch = window.fetch;
+  let finishRequest;
+  window.fetch = (url, options) => {
+    if (url === '/api/all/on') {
+      return new Promise(resolve => { finishRequest = resolve; });
+    }
+    return originalFetch(url, options);
+  };
+  const button = document.getElementById('all-off');
+  button.click();
+  button.click();
+  assert.equal(button.disabled, true);
+  assert.equal(document.getElementById('all-off-bar').disabled, true);
+  button.click();
+  assert.equal(timer.isPending(), false);
+  finishRequest({ok: false, json: async () => ({error: 'Radio failed'})});
+  await settle();
+  assert.equal(document.getElementById('toast').textContent, 'Failed: Radio failed');
+  assert.equal(button.disabled, false);
+  button.click();
+  timer.fire();
+  await settle();
+  assert.equal(requests.filter(item => item.url === '/api/all/off').length, 1);
 });
 
 test('pairs an outlet and sends the selected available unit', async t => {

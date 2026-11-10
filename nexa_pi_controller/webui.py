@@ -425,15 +425,24 @@ def pair():
     return jsonify(ok=True, unit=unit)
 
 
-@app.post("/api/all/off")
-def all_off():
+def switch_all(on):
     try:
         for d in configured_devices:
-            apply(d["unit"], False)
+            apply(d["unit"], on)
             time.sleep(0.2)
     except Exception as e:
         return jsonify(error=str(e)), 500
     return jsonify(ok=True)
+
+
+@app.post("/api/all/off")
+def all_off():
+    return switch_all(False)
+
+
+@app.post("/api/all/on")
+def all_on():
+    return switch_all(True)
 
 
 # ---------- Routes: timers ----------

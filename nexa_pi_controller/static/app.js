@@ -12,7 +12,10 @@ let viewMode = readView();
 let editorUnits = [];
 let timerSheetOpen = false;
 let suppressTileClick = false;
+let allOffTimer = null;
+let allCommandInProgress = false;
 const LONG_PRESS_MS = 500;
+const ALL_OFF_DOUBLE_PRESS_MS = 400;
 const ICONS = {
   power: [['path', {d: 'M18.36 6.64a9 9 0 1 1-12.73 0'}], ['path', {d: 'M12 2v10'}]],
   clock: [['circle', {cx: 12, cy: 12, r: 10}], ['polyline', {points: '12 6 12 12 16 14'}]],
@@ -482,13 +485,35 @@ async function send(unit, action) {
   } catch (error) { showToast(`Failed: ${error.message}`); }
 }
 
-async function allOff() {
+async function switchAll(action) {
+  allCommandInProgress = true;
+  const buttons = [document.getElementById('all-off'), document.getElementById('all-off-bar')];
+  buttons.forEach(button => { button.disabled = true; });
   try {
     showToast('Sending...');
-    await api('POST', '/api/all/off');
-    showToast('All off');
+    await api('POST', `/api/all/${action}`);
+    showToast(action === 'on' ? 'All on' : 'All off');
     await refresh();
-  } catch (error) { showToast(`Failed: ${error.message}`); }
+  } catch (error) {
+    showToast(`Failed: ${error.message}`);
+  } finally {
+    allCommandInProgress = false;
+    buttons.forEach(button => { button.disabled = false; });
+  }
+}
+
+function allOff() {
+  if (allCommandInProgress) return;
+  if (allOffTimer !== null) {
+    clearTimeout(allOffTimer);
+    allOffTimer = null;
+    switchAll('on');
+  } else {
+    allOffTimer = setTimeout(() => {
+      allOffTimer = null;
+      switchAll('off');
+    }, ALL_OFF_DOUBLE_PRESS_MS);
+  }
 }
 
 function fmtRemaining(seconds) {
