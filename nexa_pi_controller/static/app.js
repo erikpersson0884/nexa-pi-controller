@@ -16,6 +16,7 @@ let roomUnits = [];
 let mapGesture = null;
 let editorUnits = [];
 let timerSheetOpen = false;
+let timersPage = location.hash === '#timers';
 let suppressTileClick = false;
 let allOffTimer = null;
 let allCommandInProgress = false;
@@ -42,10 +43,18 @@ function readView() {
 
 function setView(view) {
   viewMode = ['grid', 'map'].includes(view) ? view : 'list';
+  if (timersPage) showTimersPage(false);
   try { localStorage.setItem('nexa-view', viewMode); } catch (_) {}
   if (viewMode !== 'map') mapEditing = false;
   renderDevices();
   if (viewMode === 'map') refreshRooms().catch(error => showToast(error.message));
+}
+
+function showTimersPage(open) {
+  timersPage = open;
+  if (open && location.hash !== '#timers') location.hash = 'timers';
+  if (!open && location.hash) history.replaceState(null, '', location.pathname + location.search);
+  renderDevices();
 }
 
 function icon(name, size = 20) {
@@ -432,8 +441,10 @@ function renderDevices() {
   while (list.firstChild) list.removeChild(list.firstChild);
   const grid = viewMode === 'grid' && !reorderMode;
   const mapView = viewMode === 'map' && !reorderMode;
-  list.hidden = mapView;
-  document.getElementById('map-view').hidden = !mapView;
+  list.hidden = mapView || timersPage;
+  document.getElementById('map-view').hidden = !mapView || timersPage;
+  document.getElementById('timers-page').hidden = !timersPage;
+  document.getElementById('open-timers').setAttribute('aria-pressed', String(timersPage));
   list.classList.toggle('grid', grid);
   document.body.classList.toggle('view-grid', grid);
   const onCount = devices.filter(d => d.state === true).length;
@@ -445,11 +456,20 @@ function renderDevices() {
   document.getElementById('reorder-done').hidden = !reorderMode;
   document.getElementById('view-bar').hidden = reorderMode;
   document.querySelectorAll('[data-view]').forEach(button => {
-    button.setAttribute('aria-pressed', String(button.dataset.view === viewMode));
+    button.setAttribute('aria-pressed', String(!timersPage && button.dataset.view === viewMode));
   });
   document.getElementById('add-outlet').hidden = reorderMode || grid || mapView;
   document.getElementById('timer-count').textContent =
     timerData.schedules.length + timerData.countdowns.length;
+  if (timersPage) {
+    const count = timerData.schedules.length + timerData.countdowns.length;
+    document.getElementById('page-title').textContent = 'Timers';
+    document.getElementById('summary').textContent = `${count} timer${count === 1 ? '' : 's'}`;
+    document.getElementById('all-off').hidden = true;
+    document.getElementById('add-outlet').hidden = true;
+    renderTimerList(document.getElementById('timers-page-list'), null);
+    return;
+  }
   if (mapView) {
     renderMap();
     return;
@@ -778,9 +798,12 @@ function openTimerSheet(device = null) {
 }
 
 function renderTimerSheet() {
-  const list = document.getElementById('timer-list');
+  renderTimerList(document.getElementById('timer-list'), timerUnit);
+}
+
+function renderTimerList(list, scopeUnit) {
   while (list.firstChild) list.removeChild(list.firstChild);
-  const inScope = timer => timerUnit === null || timer.units.includes(timerUnit);
+  const inScope = timer => scopeUnit === null || timer.units.includes(scopeUnit);
   const countdowns = timerData.countdowns.filter(inScope);
   const schedules = timerData.schedules.filter(inScope)
     .sort((a, b) => a.time.localeCompare(b.time));
@@ -1007,7 +1030,12 @@ async function refresh() {
 
 document.getElementById('add-outlet').onclick = openPairModal;
 document.getElementById('all-off').onclick = allOff;
-document.getElementById('open-timers').onclick = () => openTimerSheet();
+document.getElementById('open-timers').onclick = () => showTimersPage(true);
+document.getElementById('page-add-timer').onclick = () => openEditor('countdown');
+window.addEventListener('hashchange', () => {
+  timersPage = location.hash === '#timers';
+  renderDevices();
+});
 document.querySelectorAll('[data-view]').forEach(button => {
   button.onclick = () => setView(button.dataset.view);
 });

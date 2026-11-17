@@ -385,14 +385,16 @@ test('All timers sheet lists timers sorted with tags and adds with no preselecti
     },
   });
   document.getElementById('open-timers').click();
-  assert.equal(document.getElementById('timer-sheet-title').textContent, 'All timers');
-  const rows = [...document.querySelectorAll('#timer-list .timer-row')];
+  assert.equal(document.getElementById('timers-page').hidden, false);
+  assert.equal(document.getElementById('timer-sheet').hidden, true);
+  assert.equal(document.getElementById('page-title').textContent, 'Timers');
+  const rows = [...document.querySelectorAll('#timers-page-list .timer-row')];
   assert.match(rows[0].textContent, /COUNTDOWN.*Turns off in 24 min/);
   assert.match(rows[1].textContent, /07:30.*Turns off · every day/);
   assert.match(rows[2].textContent, /22:00.*Turns on · weekdays.*Lamp.*Fan.*\+1/);
   assert.equal([...rows[2].querySelectorAll('.tag')].length, 3);
   assert.ok(rows[2].classList.contains('is-off'));
-  document.getElementById('sheet-add-timer').click();
+  document.getElementById('page-add-timer').click();
   assert.equal(document.getElementById('save-timer').disabled, true);
   assert.equal(document.getElementById('outlets-hint').hidden, false);
 });
@@ -416,7 +418,7 @@ test('outlet-specific timer sheet filters timers and preselects the outlet', asy
 test('editor chooses outlets, select all toggles, and saves units', async t => {
   const {window, document, requests} = await setup(t, {devices: lamps, view: 'grid'});
   document.getElementById('open-timers').click();
-  document.getElementById('sheet-add-timer').click();
+  document.getElementById('page-add-timer').click();
   const chips = () => [...document.querySelectorAll('#timer-outlets .outlet-chip')];
   assert.equal(chips().length, 4);
   chips().find(chip => chip.textContent.includes('Fan')).click();
@@ -446,7 +448,7 @@ test('editing a schedule prefills fields and saves with PUT', async t => {
     ]},
   });
   document.getElementById('open-timers').click();
-  document.querySelector('#timer-list .timer-row').click();
+  document.querySelector('#timers-page-list .timer-row').click();
   assert.equal(document.getElementById('editor-title').textContent, 'Edit timer');
   assert.equal(document.getElementById('timer-time').value, '22:00');
   assert.equal(document.getElementById('save-timer').textContent, 'Save timer · 2 outlets');
@@ -479,4 +481,14 @@ test('map view toggles all outlets in a room', async t => {
   room.click();
   await settle();
   assert.ok(requests.some(r => r.url === '/api/rooms/r1/off' && r.method === 'POST'));
+});
+
+test('leaving the timers page by choosing a view shows outlets again', async t => {
+  const {document} = await setup(t, {devices: lamps});
+  document.getElementById('open-timers').click();
+  assert.equal(document.getElementById('outlet-list').hidden, true);
+  document.querySelector('[data-view="list"]').click();
+  assert.equal(document.getElementById('timers-page').hidden, true);
+  assert.equal(document.getElementById('outlet-list').hidden, false);
+  assert.equal(document.getElementById('page-title').textContent, 'Nexa Control');
 });
