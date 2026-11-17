@@ -88,7 +88,7 @@ test('renders devices and sends switch commands with CSRF protection', async t =
   assert.equal(document.getElementById('toast').textContent, 'Command sent');
 });
 
-for (const [view, buttonId] of [['list', 'all-off'], ['grid', 'all-off-bar']]) {
+for (const [view, buttonId] of [['list', 'all-off'], ['grid', 'all-off']]) {
   test(`single and double All Off presses in ${view} view`, async t => {
     const {window, document, requests} = await setup(t, {view});
     const timer = controlAllOffTimer(window);
@@ -127,7 +127,6 @@ test('all-outlet commands cannot overlap and failures allow retrying', async t =
   button.click();
   button.click();
   assert.equal(button.disabled, true);
-  assert.equal(document.getElementById('all-off-bar').disabled, true);
   button.click();
   assert.equal(timer.isPending(), false);
   finishRequest({ok: false, json: async () => ({error: 'Radio failed'})});
@@ -294,7 +293,7 @@ const lamps = [
 test('defaults to list view and remembers the chosen view', async t => {
   const {window, document} = await setup(t, {devices: lamps});
   assert.equal(document.querySelectorAll('.outlet-card').length, 3);
-  assert.equal(document.getElementById('bottom-bar').hidden, true);
+  assert.equal(document.getElementById('view-bar').hidden, false);
   document.querySelector('[data-view="grid"]').click();
   assert.equal(window.localStorage.getItem('nexa-view'), 'grid');
   assert.equal(document.querySelector('[data-view="grid"]').getAttribute('aria-pressed'), 'true');
@@ -313,8 +312,7 @@ test('applies the stored grid view on load and renders tiles', async t => {
   assert.equal(tiles[0].querySelector('.tile-status').textContent, 'On · sent 21:04');
   assert.equal(tiles[1].querySelector('.tile-status').textContent, 'Off');
   assert.ok(document.querySelector('.tile-add'));
-  assert.equal(document.getElementById('bottom-bar').hidden, false);
-  assert.equal(document.getElementById('all-off').hidden, true);
+  assert.equal(document.getElementById('all-off').hidden, false);
 });
 
 test('falls back to list view when localStorage is unavailable', async t => {
@@ -359,7 +357,7 @@ test('menu button works in grid view and reorder mode shows compact rows', async
     .find(button => button.textContent === 'Reorder outlets').click();
   assert.equal(document.querySelectorAll('.reorder-card').length, 3);
   assert.equal(document.querySelectorAll('.tile').length, 0);
-  assert.equal(document.getElementById('bottom-bar').hidden, true);
+  assert.equal(document.getElementById('view-bar').hidden, true);
 });
 
 test('tile shows the next timer time and the bottom bar counts timers', async t => {

@@ -441,14 +441,13 @@ function renderDevices() {
   document.getElementById('summary').textContent = reorderMode
     ? 'Drag the handle or use the arrows'
     : `${devices.length} outlet${devices.length === 1 ? '' : 's'} · ${onCount} on`;
-  document.getElementById('all-off').hidden = reorderMode || grid;
+  document.getElementById('all-off').hidden = reorderMode;
   document.getElementById('reorder-done').hidden = !reorderMode;
-  document.getElementById('view-switch').hidden = reorderMode;
+  document.getElementById('view-bar').hidden = reorderMode;
   document.querySelectorAll('[data-view]').forEach(button => {
     button.setAttribute('aria-pressed', String(button.dataset.view === viewMode));
   });
   document.getElementById('add-outlet').hidden = reorderMode || grid || mapView;
-  document.getElementById('bottom-bar').hidden = !grid;
   document.getElementById('timer-count').textContent =
     timerData.schedules.length + timerData.countdowns.length;
   if (mapView) {
@@ -715,7 +714,7 @@ async function send(unit, action) {
 
 async function switchAll(action) {
   allCommandInProgress = true;
-  const buttons = [document.getElementById('all-off'), document.getElementById('all-off-bar')];
+  const buttons = [document.getElementById('all-off')];
   buttons.forEach(button => { button.disabled = true; });
   try {
     showToast('Sending...');
@@ -1008,7 +1007,6 @@ async function refresh() {
 
 document.getElementById('add-outlet').onclick = openPairModal;
 document.getElementById('all-off').onclick = allOff;
-document.getElementById('all-off-bar').onclick = allOff;
 document.getElementById('open-timers').onclick = () => openTimerSheet();
 document.querySelectorAll('[data-view]').forEach(button => {
   button.onclick = () => setView(button.dataset.view);

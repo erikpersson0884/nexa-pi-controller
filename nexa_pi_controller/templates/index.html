@@ -23,11 +23,6 @@
     <div class="topbar-actions">
       <button id="all-off" class="secondary" type="button" aria-label="All off; double-press for all on" title="Double-press for all on">All off</button>
       <button id="reorder-done" class="primary" type="button" hidden>Done</button>
-      <div id="view-switch" class="view-switch" role="group" aria-label="Layout">
-        <button type="button" data-view="list" aria-label="List view" aria-pressed="true"></button>
-        <button type="button" data-view="grid" aria-label="Grid view" aria-pressed="false"></button>
-        <button type="button" data-view="map" aria-label="Map view" aria-pressed="false"></button>
-      </div>
     </div>
   </header>
   <section id="outlet-list" aria-live="polite"></section>
@@ -43,14 +38,17 @@
   <div id="reorder-announcement" class="sr-only" aria-live="polite"></div>
 </main>
 
-<nav id="bottom-bar" class="bottom-bar" aria-label="Quick actions" hidden>
-  <button id="open-timers" class="timers-button" type="button">
-    <span id="timers-icon" class="icon-slot"></span>
+<footer id="view-bar" class="view-bar">
+  <div id="view-switch" class="view-switch" role="group" aria-label="Layout">
+    <button type="button" data-view="list" aria-label="List view" aria-pressed="true"><span>List</span></button>
+    <button type="button" data-view="grid" aria-label="Grid view" aria-pressed="false"><span>Grid</span></button>
+    <button type="button" data-view="map" aria-label="Map view" aria-pressed="false"><span>Map</span></button>
+  </div>
+  <button id="open-timers" class="timers-button" type="button" aria-label="Timers">
+    <span class="icon-slot"><span id="timers-icon" class="icon-slot"></span><span id="timer-count" class="badge">0</span></span>
     <span>Timers</span>
-    <span id="timer-count" class="badge">0</span>
   </button>
-  <button id="all-off-bar" class="secondary" type="button" aria-label="All off; double-press for all on" title="Double-press for all on">All off</button>
-</nav>
+</footer>
 
 <div id="pair-modal" class="overlay" hidden>
   <form id="pair-form" class="dialog">
