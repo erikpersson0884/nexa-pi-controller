@@ -44,6 +44,7 @@ DATA_DIR = config.DATA_DIR
 STATE_FILE = config.STATE_FILE
 DEVICES_FILE = config.DEVICES_FILE
 TIMER_FILE = config.TIMER_FILE
+ROOMS_FILE = config.ROOMS_FILE
 
 tx_lock = radio.tx_lock
 timer_lock = threading.Lock()   # protects the timers dict
@@ -78,6 +79,7 @@ save_devices = storage.save_devices
 configured_devices = storage.load_devices()
 state = storage.load_state()
 timers = storage.load_timers()
+configured_rooms = storage.load_rooms()
 state_lock = threading.Lock()
 last_fired = {}   # schedule id -> "YYYY-MM-DD HH:MM" (prevents double firing)
 last_sent = {}
@@ -392,6 +394,9 @@ def rename_device(unit):
         for collection in ("schedules", "countdowns"):
             for timer in timers[collection]:
                 timer["units"] = [new_unit if u == unit else u for u in timer["units"]]
+        for room in configured_rooms:
+            room["units"] = [new_unit if u == unit else u for u in room["units"]]
+        storage.save_rooms(configured_rooms)
     save_devices(configured_devices)
     save_state(state)
     save_timers()
@@ -404,6 +409,9 @@ def remove_device(unit):
         return jsonify(error="Unknown outlet"), 404
     configured_devices[:] = [d for d in configured_devices if d["unit"] != unit]
     state.pop(unit, None)
+    for room in configured_rooms:
+        room["units"] = [u for u in room["units"] if u != unit]
+    storage.save_rooms(configured_rooms)
     save_devices(configured_devices)
     save_state(state)
     with timer_lock:
@@ -479,6 +487,78 @@ def all_off():
 @app.post("/api/all/on")
 def all_on():
     return switch_all(True)
+
+
+# ---------- Routes: rooms (map view) ----------
+ROOM_GRID = 100   # rooms live on a ROOM_GRID x ROOM_GRID coordinate plane
+
+
+def parse_rooms(data):
+    """Validate a list of rooms; return (rooms, error_message)."""
+    if not isinstance(data, list):
+        return None, "rooms must be a list"
+    rooms = []
+    ids = set()
+    for item in data:
+        if not isinstance(item, dict):
+            return None, "invalid room"
+        room_id = item.get("id")
+        name = item.get("name")
+        if not isinstance(room_id, str) or not room_id.strip() or room_id in ids:
+            return None, "each room needs a unique id"
+        if not isinstance(name, str) or not name.strip():
+            return None, "room name is required"
+        geometry = []
+        for key in ("x", "y", "w", "h"):
+            value = item.get(key)
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                return None, f"{key} must be a number"
+            geometry.append(float(value))
+        x, y, w, h = geometry
+        if w < 1 or h < 1 or x < 0 or y < 0 or x + w > ROOM_GRID or y + h > ROOM_GRID:
+            return None, "room must fit inside the map"
+        units = item.get("units", [])
+        if (not isinstance(units, list)
+                or not all(isinstance(u, int) and not isinstance(u, bool) for u in units)):
+            return None, "units must be a list of integers"
+        if not all(valid_unit(u) for u in units):
+            return None, "Unknown outlet"
+        ids.add(room_id)
+        rooms.append({"id": room_id, "name": name.strip()[:80], "x": x, "y": y,
+                      "w": w, "h": h, "units": list(dict.fromkeys(units))})
+    return rooms, None
+
+
+@app.get("/api/rooms")
+def get_rooms():
+    return jsonify(configured_rooms)
+
+
+@app.put("/api/rooms")
+def update_rooms():
+    rooms, error = parse_rooms(request.get_json(silent=True))
+    if error:
+        return jsonify(error=error), 400
+    configured_rooms[:] = rooms
+    storage.save_rooms(configured_rooms)
+    return jsonify(ok=True)
+
+
+@app.post("/api/rooms/<room_id>/<action>")
+def switch_room(room_id, action):
+    room = next((r for r in configured_rooms if r["id"] == room_id), None)
+    if room is None:
+        return jsonify(error="Unknown room"), 404
+    if action not in ("on", "off"):
+        return jsonify(error="bad request"), 400
+    try:
+        for unit in room["units"]:
+            if valid_unit(unit):
+                apply(unit, action == "on")
+                time.sleep(0.2)
+    except Exception as e:
+        return jsonify(error=str(e)), 500
+    return jsonify(ok=True)
 
 
 # ---------- Routes: timers ----------

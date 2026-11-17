@@ -26,10 +26,19 @@
       <div id="view-switch" class="view-switch" role="group" aria-label="Layout">
         <button type="button" data-view="list" aria-label="List view" aria-pressed="true"></button>
         <button type="button" data-view="grid" aria-label="Grid view" aria-pressed="false"></button>
+        <button type="button" data-view="map" aria-label="Map view" aria-pressed="false"></button>
       </div>
     </div>
   </header>
   <section id="outlet-list" aria-live="polite"></section>
+  <section id="map-view" hidden>
+    <div class="map-toolbar">
+      <p id="map-hint" class="hint">Tap a room to switch its outlets.</p>
+      <button id="add-room" class="secondary" type="button" hidden>＋ Add room</button>
+      <button id="edit-map" class="secondary" type="button">Edit layout</button>
+    </div>
+    <div id="map" class="map"></div>
+  </section>
   <button id="add-outlet" class="add-card" type="button">＋ Add outlet</button>
   <div id="reorder-announcement" class="sr-only" aria-live="polite"></div>
 </main>
@@ -73,6 +82,21 @@
     <div class="dialog-actions">
       <button class="secondary" type="button" data-close="rename-modal">Cancel</button>
       <button class="primary" type="submit">Save</button>
+    </div>
+  </form>
+</div>
+
+<div id="room-modal" class="overlay" hidden>
+  <form id="room-form" class="dialog">
+    <button class="close-button" type="button" data-close="room-modal" aria-label="Close">×</button>
+    <h2>Edit room</h2>
+    <label for="room-name">Room name</label>
+    <input id="room-name" type="text" maxlength="80" required>
+    <span id="room-outlets-heading" class="field-label">Outlets in this room</span>
+    <div id="room-outlets" class="outlet-chips" role="group" aria-labelledby="room-outlets-heading"></div>
+    <div class="dialog-actions">
+      <button id="delete-room" class="danger" type="button">Delete</button>
+      <button class="primary full" type="submit">Save</button>
     </div>
   </form>
 </div>

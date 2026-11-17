@@ -445,6 +445,34 @@ class WebUiTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(webui.timers["schedules"], [])
 
+    def test_rooms_are_validated_saved_and_switched(self):
+        webui.configured_devices = [{"unit": 0, "name": "A"}, {"unit": 1, "name": "B"}]
+        room = {"id": "r1", "name": " Kitchen ", "x": 0, "y": 0, "w": 40, "h": 30, "units": [0, 1, 1]}
+        old = webui.configured_rooms
+        webui.configured_rooms = []
+        try:
+            with patch.object(webui.storage, "save_rooms") as save:
+                self.assertEqual(self.client.put("/api/rooms", json=[room]).status_code, 200)
+            save.assert_called_once()
+            self.assertEqual(self.client.get("/api/rooms").get_json()[0]["units"], [0, 1])
+            self.assertEqual(webui.configured_rooms[0]["name"], "Kitchen")
+
+            for bad in ({**room, "units": [9]}, {**room, "w": 150}, {**room, "name": " "}):
+                self.assertEqual(self.client.put("/api/rooms", json=[bad]).status_code, 400)
+            self.assertEqual(self.client.put("/api/rooms", json=[room, room]).status_code, 400)
+
+            with patch.object(webui, "apply") as apply, patch.object(webui.time, "sleep"):
+                self.assertEqual(self.client.post("/api/rooms/r1/on").status_code, 200)
+                self.assertEqual(self.client.post("/api/rooms/nope/on").status_code, 404)
+            apply.assert_has_calls([call(0, True), call(1, True)])
+
+            with patch.object(webui.storage, "save_rooms"), \
+                    patch.object(webui, "save_devices"), patch.object(webui, "save_state"):
+                self.client.delete("/api/devices/1")
+            self.assertEqual(webui.configured_rooms[0]["units"], [0])
+        finally:
+            webui.configured_rooms = old
+
 
 if __name__ == "__main__":
     unittest.main()

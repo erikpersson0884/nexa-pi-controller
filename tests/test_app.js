@@ -11,7 +11,7 @@ const script = new vm.Script(fs.readFileSync(scriptPath, 'utf8'), {filename: scr
 const template = fs.readFileSync(path.join(root, 'nexa_pi_controller/templates/index.html'), 'utf8')
   .replace('{{ csrf_token() }}', 'test-csrf');
 
-async function setup(t, {devices = [], timers = {schedules: [], countdowns: []}, fail, view} = {}) {
+async function setup(t, {devices = [], timers = {schedules: [], countdowns: []}, fail, view, rooms = []} = {}) {
   const dom = new JSDOM(template, {
     url: 'http://localhost/',
     runScripts: 'outside-only',
@@ -30,6 +30,7 @@ async function setup(t, {devices = [], timers = {schedules: [], countdowns: []},
     let response = {};
     if (url === '/api/devices' && options.method === 'GET') response = devices;
     if (url === '/api/timers' && options.method === 'GET') response = timers;
+    if (url === '/api/rooms' && options.method === 'GET') response = rooms;
     return {ok: true, json: async () => response};
   };
   window.confirm = () => true;
@@ -466,4 +467,18 @@ test('outlet names are rendered as text, not markup', async t => {
   });
   assert.equal(document.querySelector('.tile-name').textContent, '<img src=x onerror=alert(1)>');
   assert.equal(document.querySelector('.tile img'), null);
+});
+
+test('map view toggles all outlets in a room', async t => {
+  const {document, requests} = await setup(t, {
+    view: 'map',
+    devices: [{unit: 1, name: 'A', state: true}, {unit: 2, name: 'B', state: false}],
+    rooms: [{id: 'r1', name: 'Hall', x: 0, y: 0, w: 40, h: 40, units: [1, 2]}],
+  });
+  const room = document.querySelector('.room');
+  assert.match(room.textContent, /Hall/);
+  assert.match(room.textContent, /1\/2 on/);
+  room.click();
+  await settle();
+  assert.ok(requests.some(r => r.url === '/api/rooms/r1/off' && r.method === 'POST'));
 });

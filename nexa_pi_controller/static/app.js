@@ -9,11 +9,18 @@ let reorderMode = false;
 let reorderDevices = [];
 let dragged = null;
 let viewMode = readView();
+let rooms = [];
+let mapEditing = false;
+let editingRoom = null;
+let roomUnits = [];
+let mapGesture = null;
 let editorUnits = [];
 let timerSheetOpen = false;
 let suppressTileClick = false;
 let allOffTimer = null;
 let allCommandInProgress = false;
+const MAP_SIZE = 100;
+const MIN_ROOM_SIZE = 10;
 const LONG_PRESS_MS = 500;
 const ALL_OFF_DOUBLE_PRESS_MS = 400;
 const ICONS = {
@@ -22,19 +29,23 @@ const ICONS = {
   list: [['path', {d: 'M4 6h16M4 12h16M4 18h16'}]],
   grid: [['rect', {x: 4, y: 4, width: 6, height: 6, rx: 1}], ['rect', {x: 14, y: 4, width: 6, height: 6, rx: 1}],
     ['rect', {x: 4, y: 14, width: 6, height: 6, rx: 1}], ['rect', {x: 14, y: 14, width: 6, height: 6, rx: 1}]],
+  map: [['path', {d: 'M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z'}], ['path', {d: 'M9 4v14M15 6v14'}]],
   check: [['polyline', {points: '20 6 9 17 4 12'}]],
 };
 
 function readView() {
   try {
-    return localStorage.getItem('nexa-view') === 'grid' ? 'grid' : 'list';
+    const view = localStorage.getItem('nexa-view');
+    return ['grid', 'map'].includes(view) ? view : 'list';
   } catch (_) { return 'list'; }
 }
 
 function setView(view) {
-  viewMode = view === 'grid' ? 'grid' : 'list';
+  viewMode = ['grid', 'map'].includes(view) ? view : 'list';
   try { localStorage.setItem('nexa-view', viewMode); } catch (_) {}
+  if (viewMode !== 'map') mapEditing = false;
   renderDevices();
+  if (viewMode === 'map') refreshRooms().catch(error => showToast(error.message));
 }
 
 function icon(name, size = 20) {
@@ -92,6 +103,7 @@ function closeOverlay(id) {
   document.getElementById(id).hidden = true;
   if (id === 'timer-sheet') { timerUnit = null; timerSheetOpen = false; }
   if (id === 'editor-sheet') editing = null;
+  if (id === 'room-modal') editingRoom = null;
   if (id === 'rename-modal' || id === 'remove-modal') editingDevice = null;
 }
 
@@ -182,6 +194,215 @@ function renderGrid(list) {
   list.append(add);
 }
 
+function roomOutletStats(room) {
+  const known = room.units.map(unit => devices.find(d => d.unit === unit)).filter(Boolean);
+  return {total: known.length, on: known.filter(d => d.state === true).length};
+}
+
+function renderMap() {
+  if (mapGesture) return;
+  const map = document.getElementById('map');
+  while (map.firstChild) map.removeChild(map.firstChild);
+  map.classList.toggle('editing', mapEditing);
+  document.getElementById('edit-map').textContent = mapEditing ? 'Done' : 'Edit layout';
+  document.getElementById('add-room').hidden = !mapEditing;
+  document.getElementById('map-hint').textContent = mapEditing
+    ? 'Drag rooms to move, use the corner to resize, tap to edit.'
+    : 'Tap a room to switch its outlets.';
+  if (!rooms.length) {
+    map.append(el('div', 'map-empty', mapEditing
+      ? 'Add a room to start drawing your apartment.'
+      : 'No rooms yet. Press Edit layout to draw your apartment.'));
+    return;
+  }
+  rooms.forEach(room => {
+    const {total, on} = roomOutletStats(room);
+    const node = el('button', `room${on > 0 && !mapEditing ? ' on' : ''}`);
+    node.type = 'button';
+    node.dataset.room = room.id;
+    Object.assign(node.style, {
+      left: `${room.x}%`, top: `${room.y}%`, width: `${room.w}%`, height: `${room.h}%`,
+    });
+    node.append(el('span', 'room-name', room.name),
+      el('span', 'room-status', total ? `${on}/${total} on` : 'No outlets'));
+    if (mapEditing) {
+      node.setAttribute('aria-label', `Edit ${room.name}`);
+      node.addEventListener('pointerdown', event => startRoomGesture(event, room, 'move'));
+      const handle = el('span', 'room-resize');
+      handle.setAttribute('aria-hidden', 'true');
+      handle.addEventListener('pointerdown', event => startRoomGesture(event, room, 'resize'));
+      node.append(handle);
+    } else {
+      node.setAttribute('aria-label', `Toggle ${room.name}`);
+      node.setAttribute('aria-pressed', String(on > 0));
+      node.onclick = () => toggleRoom(room);
+    }
+    map.append(node);
+  });
+}
+
+function clampRoom(room) {
+  room.w = Math.min(MAP_SIZE, Math.max(MIN_ROOM_SIZE, room.w));
+  room.h = Math.min(MAP_SIZE, Math.max(MIN_ROOM_SIZE, room.h));
+  room.x = Math.min(MAP_SIZE - room.w, Math.max(0, room.x));
+  room.y = Math.min(MAP_SIZE - room.h, Math.max(0, room.y));
+}
+
+function startRoomGesture(event, room, type) {
+  event.preventDefault();
+  event.stopPropagation();
+  const map = document.getElementById('map');
+  const bounds = map.getBoundingClientRect();
+  mapGesture = {
+    room, type, moved: false, startX: event.clientX, startY: event.clientY,
+    origin: {x: room.x, y: room.y, w: room.w, h: room.h},
+    scale: MAP_SIZE / (bounds.width || 1),
+    node: event.currentTarget.closest('.room'),
+  };
+  window.addEventListener('pointermove', moveRoomGesture);
+  window.addEventListener('pointerup', endRoomGesture);
+  window.addEventListener('pointercancel', endRoomGesture);
+}
+
+function moveRoomGesture(event) {
+  const g = mapGesture;
+  if (!g) return;
+  const dx = event.clientX - g.startX;
+  const dy = event.clientY - g.startY;
+  if (!g.moved && Math.hypot(dx, dy) < 5) return;
+  g.moved = true;
+  const room = g.room;
+  if (g.type === 'move') {
+    room.x = Math.round(g.origin.x + dx * g.scale);
+    room.y = Math.round(g.origin.y + dy * g.scale);
+  } else {
+    room.w = Math.round(g.origin.w + dx * g.scale);
+    room.h = Math.round(g.origin.h + dy * g.scale);
+  }
+  clampRoom(room);
+  Object.assign(g.node.style, {
+    left: `${room.x}%`, top: `${room.y}%`, width: `${room.w}%`, height: `${room.h}%`,
+  });
+}
+
+async function endRoomGesture(event) {
+  const g = mapGesture;
+  mapGesture = null;
+  window.removeEventListener('pointermove', moveRoomGesture);
+  window.removeEventListener('pointerup', endRoomGesture);
+  window.removeEventListener('pointercancel', endRoomGesture);
+  if (!g) return;
+  if (event.type === 'pointercancel') {
+    Object.assign(g.room, g.origin);
+    renderMap();
+  } else if (g.moved) {
+    await saveRooms();
+  } else {
+    openRoomModal(g.room);
+  }
+}
+
+async function saveRooms() {
+  try {
+    await api('PUT', '/api/rooms', rooms);
+  } catch (error) {
+    showToast(`Failed: ${error.message}`);
+    await refreshRooms(true).catch(() => {});
+  }
+}
+
+async function refreshRooms(force = false) {
+  if (mapEditing && !force) return;
+  const data = await api('GET', '/api/rooms');
+  rooms = Array.isArray(data) ? data : [];
+  if (viewMode === 'map') renderMap();
+}
+
+function toggleRoom(room) {
+  const {total, on} = roomOutletStats(room);
+  if (!total) {
+    showToast('No outlets in this room');
+    return;
+  }
+  sendRoom(room, on > 0 ? 'off' : 'on');
+}
+
+async function sendRoom(room, action) {
+  try {
+    showToast('Sending...');
+    await api('POST', `/api/rooms/${encodeURIComponent(room.id)}/${action}`);
+    showToast('Command sent');
+    await refresh();
+  } catch (error) { showToast(`Failed: ${error.message}`); }
+}
+
+async function toggleMapEditing() {
+  mapEditing = !mapEditing;
+  if (!mapEditing) await refreshRooms(true).catch(error => showToast(error.message));
+  renderMap();
+}
+
+async function addRoom() {
+  const room = {
+    id: (crypto.randomUUID ? crypto.randomUUID() : `r${Date.now()}${Math.random().toString(16).slice(2)}`),
+    name: `Room ${rooms.length + 1}`, x: 10, y: 10, w: 30, h: 30, units: [],
+  };
+  rooms.push(room);
+  await saveRooms();
+  renderMap();
+  openRoomModal(room);
+}
+
+function openRoomModal(room) {
+  editingRoom = room;
+  roomUnits = [...room.units];
+  document.getElementById('room-name').value = room.name;
+  const box = document.getElementById('room-outlets');
+  while (box.firstChild) box.removeChild(box.firstChild);
+  if (!devices.length) box.append(el('p', 'hint', 'No outlets configured yet.'));
+  devices.forEach(device => {
+    const chip = el('button', 'outlet-chip');
+    chip.type = 'button';
+    const check = el('span', 'chip-check');
+    check.append(icon('check', 16));
+    chip.append(check, el('span', 'chip-label', device.name));
+    const update = () => {
+      const selected = roomUnits.includes(device.unit);
+      chip.setAttribute('aria-pressed', String(selected));
+      check.hidden = !selected;
+    };
+    chip.onclick = () => {
+      roomUnits = roomUnits.includes(device.unit)
+        ? roomUnits.filter(unit => unit !== device.unit)
+        : [...roomUnits, device.unit];
+      update();
+    };
+    update();
+    box.append(chip);
+  });
+  document.getElementById('room-modal').hidden = false;
+  document.getElementById('room-name').focus();
+}
+
+async function saveRoom(event) {
+  event.preventDefault();
+  const name = document.getElementById('room-name').value.trim();
+  if (!name || !editingRoom) return;
+  editingRoom.name = name;
+  editingRoom.units = [...roomUnits];
+  closeOverlay('room-modal');
+  await saveRooms();
+  renderMap();
+}
+
+async function deleteRoom() {
+  if (!editingRoom) return;
+  rooms = rooms.filter(room => room.id !== editingRoom.id);
+  closeOverlay('room-modal');
+  await saveRooms();
+  renderMap();
+}
+
 function attachLongPress(node, onLongPress) {
   let timer = null;
   let startX = 0;
@@ -210,6 +431,9 @@ function renderDevices() {
   const list = document.getElementById('outlet-list');
   while (list.firstChild) list.removeChild(list.firstChild);
   const grid = viewMode === 'grid' && !reorderMode;
+  const mapView = viewMode === 'map' && !reorderMode;
+  list.hidden = mapView;
+  document.getElementById('map-view').hidden = !mapView;
   list.classList.toggle('grid', grid);
   document.body.classList.toggle('view-grid', grid);
   const onCount = devices.filter(d => d.state === true).length;
@@ -223,10 +447,14 @@ function renderDevices() {
   document.querySelectorAll('[data-view]').forEach(button => {
     button.setAttribute('aria-pressed', String(button.dataset.view === viewMode));
   });
-  document.getElementById('add-outlet').hidden = reorderMode || grid;
+  document.getElementById('add-outlet').hidden = reorderMode || grid || mapView;
   document.getElementById('bottom-bar').hidden = !grid;
   document.getElementById('timer-count').textContent =
     timerData.schedules.length + timerData.countdowns.length;
+  if (mapView) {
+    renderMap();
+    return;
+  }
   if (grid) {
     renderGrid(list);
     return;
@@ -773,6 +1001,7 @@ async function refresh() {
   if (reorderMode) return;
   devices = await api('GET', '/api/devices');
   timerData = await api('GET', '/api/timers');
+  if (viewMode === 'map') await refreshRooms();
   renderDevices();
   if (!document.getElementById('timer-sheet').hidden) renderTimerSheet();
 }
@@ -786,6 +1015,11 @@ document.querySelectorAll('[data-view]').forEach(button => {
 });
 document.querySelector('[data-view="list"]').append(icon('list', 22));
 document.querySelector('[data-view="grid"]').append(icon('grid', 22));
+document.querySelector('[data-view="map"]').append(icon('map', 22));
+document.getElementById('edit-map').onclick = toggleMapEditing;
+document.getElementById('add-room').onclick = addRoom;
+document.getElementById('room-form').onsubmit = saveRoom;
+document.getElementById('delete-room').onclick = deleteRoom;
 document.getElementById('timers-icon').append(icon('clock', 20));
 document.getElementById('reorder-done').onclick = () => leaveReorderMode(true);
 document.getElementById('pair-form').onsubmit = pairOutlet;
@@ -834,6 +1068,7 @@ document.querySelectorAll('.sheet').forEach(sheet => {
 
 buildDays();
 renderDevices();
+if (viewMode === 'map') refreshRooms().catch(error => showToast(error.message));
 refresh().catch(error => showToast(error.message));
 setInterval(refreshTimers, 15000);
 setInterval(refresh, 15000);

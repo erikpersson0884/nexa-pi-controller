@@ -3,7 +3,7 @@
 import json
 import os
 
-from .config import DEVICES_FILE, STATE_FILE, TIMER_FILE
+from .config import DEVICES_FILE, ROOMS_FILE, STATE_FILE, TIMER_FILE
 
 
 def _ensure_data_dir():
@@ -88,3 +88,23 @@ def save_timers(timers):
             json.dump(timers, f)
     except Exception:
         pass
+
+
+def load_rooms():
+    try:
+        with open(ROOMS_FILE) as f:
+            rooms = json.load(f)
+        if not isinstance(rooms, list):
+            raise ValueError("room configuration must be a list")
+        return rooms
+    except FileNotFoundError:
+        return []
+    except Exception as e:
+        print("Could not read rooms file, using no rooms:", e, flush=True)
+        return []
+
+
+def save_rooms(rooms):
+    _ensure_data_dir()
+    with open(ROOMS_FILE, "w") as f:
+        json.dump(rooms, f, indent=2)

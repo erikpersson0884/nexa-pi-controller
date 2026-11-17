@@ -44,6 +44,7 @@ This repository contains **only the controller app**. It requires a 433 MHz ASK/
 - Pair new outlets from the web page ("Add outlet")
 - Choose an outlet number when pairing and change it later from the outlet edit menu
 - "All off" button (double-press within 400 ms to turn all outlets on instead)
+- Map view: draw your apartment as rooms ("Edit layout"), assign outlets to each room, then tap a room to switch all its outlets
 - Countdown timers ("turn off in 30 minutes")
 - Weekly schedules (time + days), which can be disabled or deleted
 - Timers, outlets and last-known states are saved to disk and survive restarts
@@ -133,7 +134,7 @@ Create a `.env` file in the project directory for required secrets and local ove
 |---|---|---|
 | `PORT` | `8080` | Port the web UI listens on |
 | `HOST` | `127.0.0.1` | Network interface to bind to. Use `0.0.0.0` only when the app must be reachable from other devices |
-| `DATA_DIR` | project `data/` folder (`/data` in Docker) | Where `nexa_state.json`, `nexa_devices.json` and `nexa_timers.json` are stored |
+| `DATA_DIR` | project `data/` folder (`/data` in Docker) | Where `nexa_state.json`, `nexa_devices.json`, `nexa_timers.json` and `nexa_rooms.json` are stored |
 | `GPIO_MODE` | `hardware` | Set to `mock` on a development computer without GPIO hardware. Pairing and switching are simulated |
 | `LG_WD` | private temporary directory | Optional lgpio working directory. If set, it must exist, be writable, and be protected from other users; lgpio changes the process working directory to this location |
 | `GPIO_CHIP` | `15` | GPIO chip number for the Pi header (`pinctrl-rp1` on the default setup) |

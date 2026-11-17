@@ -4,6 +4,9 @@
   "description": "Control Nexa outlets from a Raspberry Pi.",
   "start_url": "/",
   "display": "standalone",
+  "orientation": "portrait",
+  "lang": "en",
+  "categories": ["utilities"],
   "background_color": "#121417",
   "theme_color": "#121417",
   "icons": [
