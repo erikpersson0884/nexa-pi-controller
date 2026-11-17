@@ -459,8 +459,6 @@ function renderDevices() {
     button.setAttribute('aria-pressed', String(!timersPage && button.dataset.view === viewMode));
   });
   document.getElementById('add-outlet').hidden = reorderMode || grid || mapView;
-  document.getElementById('timer-count').textContent =
-    timerData.schedules.length + timerData.countdowns.length;
   if (timersPage) {
     const count = timerData.schedules.length + timerData.countdowns.length;
     document.getElementById('page-title').textContent = 'Timers';

@@ -370,7 +370,6 @@ test('tile shows the next timer time and the bottom bar counts timers', async t 
   });
   assert.equal(document.querySelector('[data-unit="1"] .tile-next').textContent, '22:00');
   assert.equal(document.querySelector('[data-unit="3"] .tile-next'), null);
-  assert.equal(document.getElementById('timer-count').textContent, '2');
 });
 
 test('All timers sheet lists timers sorted with tags and adds with no preselection', async t => {
