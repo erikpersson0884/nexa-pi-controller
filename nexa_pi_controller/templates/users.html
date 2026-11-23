@@ -14,7 +14,9 @@
             <p class="summary">{{ account_count }} account{% if account_count != 1 %}s{% endif %} ({{ active_account_count }} active) · Signed in as {{ current_user.username }}</p>
         </div>
     </header>
-    <a class="settings-back-link" href="{{ url_for('index') }}#settings">‹ Settings</a>
+    <a class="settings-back-link" href="{{ url_for('index') }}#settings">
+      <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span> Settings
+    </a>
     {% with messages = get_flashed_messages() %}
         {% if messages %}
         <div class="account-messages" role="status">

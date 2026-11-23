@@ -27,7 +27,9 @@
   </header>
   <section id="outlet-list" aria-live="polite"></section>
   <section id="timers-page" hidden>
-    <a id="timers-settings-back" class="settings-back-link" href="#settings">‹ Settings</a>
+    <a id="timers-settings-back" class="settings-back-link" href="#settings">
+      <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span> Settings
+    </a>
     <div id="timers-page-list"></div>
     <button id="page-add-timer" class="add-card" type="button">＋ Add timer</button>
   </section>
@@ -41,7 +43,7 @@
             <span class="settings-link-title">Appearance</span>
             <span class="settings-link-description">Customize page colors</span>
           </span>
-          <span class="settings-link-chevron" aria-hidden="true">›</span>
+          <span class="settings-link-chevron" aria-hidden="true"><span class="material-symbols-outlined">chevron_right</span></span>
         </a>
       </div>
       <div class="settings-group">
@@ -52,7 +54,7 @@
             <span class="settings-link-title">Timers</span>
             <span class="settings-link-description">Manage schedules and countdowns</span>
           </span>
-          <span class="settings-link-chevron" aria-hidden="true">›</span>
+          <span class="settings-link-chevron" aria-hidden="true"><span class="material-symbols-outlined">chevron_right</span></span>
         </a>
       </div>
       <div class="settings-group">
@@ -69,38 +71,40 @@
         </div>
         {% if current_user.role == "admin" %}
         <a class="settings-link" href="{{ url_for('admin_users') }}">
-          <span class="settings-link-icon" aria-hidden="true">♙</span>
+          <span class="settings-link-icon" aria-hidden="true"><span class="material-symbols-outlined">group</span></span>
           <span class="settings-link-copy">
             <span class="settings-link-title">Users</span>
             <span class="settings-link-description">Manage accounts and access</span>
           </span>
-          <span class="settings-link-chevron" aria-hidden="true">›</span>
+          <span class="settings-link-chevron" aria-hidden="true"><span class="material-symbols-outlined">chevron_right</span></span>
         </a>
         {% endif %}
         <a class="settings-link" href="{{ url_for('change_password') }}">
-          <span class="settings-link-icon" aria-hidden="true">▣</span>
+          <span class="settings-link-icon" aria-hidden="true"><span class="material-symbols-outlined">key</span></span>
           <span class="settings-link-copy">
             <span class="settings-link-title">Change password</span>
             <span class="settings-link-description">Update your sign-in password</span>
           </span>
-          <span class="settings-link-chevron" aria-hidden="true">›</span>
+          <span class="settings-link-chevron" aria-hidden="true"><span class="material-symbols-outlined">chevron_right</span></span>
         </a>
         <form class="settings-logout" method="post" action="{{ url_for('logout') }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button class="settings-link" type="submit">
-            <span class="settings-link-icon" aria-hidden="true">↪</span>
+            <span class="settings-link-icon" aria-hidden="true"><span class="material-symbols-outlined">logout</span></span>
             <span class="settings-link-copy">
               <span class="settings-link-title">Sign out</span>
               <span class="settings-link-description">End this browser session</span>
             </span>
-            <span class="settings-link-chevron" aria-hidden="true">›</span>
+            <span class="settings-link-chevron" aria-hidden="true"><span class="material-symbols-outlined">chevron_right</span></span>
           </button>
         </form>
       </div>
     </div>
   </section>
   <section id="appearance-page" hidden>
-    <a id="appearance-settings-back" class="settings-back-link" href="#settings">‹ Settings</a>
+    <a id="appearance-settings-back" class="settings-back-link" href="#settings">
+      <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span> Settings
+    </a>
     <div class="appearance-panel">
       <label for="appearance-theme">Color theme</label>
       <select id="appearance-theme">

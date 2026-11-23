@@ -3,6 +3,29 @@
   --on:#16a34a; --primary:#15803d; --btn:#2a2f36; --danger:#dc2626;
   --line:#3a4048; --shadow:0 12px 30px rgba(0,0,0,.45);
 }
+@font-face {
+  font-family:'Material Symbols Outlined';
+  font-style:normal;
+  font-weight:400;
+  font-display:swap;
+  src:url('/static/material-symbols-settings.woff2') format('woff2');
+}
+.material-symbols-outlined {
+  display:inline-block;
+  font-family:'Material Symbols Outlined';
+  font-size:24px;
+  font-style:normal;
+  font-weight:400;
+  line-height:1;
+  letter-spacing:normal;
+  text-transform:none;
+  white-space:nowrap;
+  direction:ltr;
+  font-feature-settings:'liga';
+  -webkit-font-feature-settings:'liga';
+  -webkit-font-smoothing:antialiased;
+  font-variation-settings:'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
 @media (prefers-color-scheme: light) {
   :root {
     --bg:#f4f5f7; --card:#fff; --text:#1c1e21; --muted:#6b7280;
@@ -105,8 +128,9 @@ input:focus, select:focus { outline:2px solid color-mix(in srgb, var(--primary) 
 .settings-link-copy { display:flex; flex:1; min-width:0; flex-direction:column; }
 .settings-link-title { font-weight:650; }
 .settings-link-description { color:var(--muted); font-size:.85rem; }
-.settings-link-chevron { color:var(--muted); font-size:1.6rem; line-height:1; }
-.settings-back-link { display:inline-block; margin:0 0 12px; color:var(--muted); text-decoration:none; }
+.settings-link-chevron { display:inline-flex; align-items:center; color:var(--muted); }
+.settings-back-link { display:inline-flex; align-items:center; gap:4px; margin:0 0 12px;
+                      color:var(--muted); text-decoration:none; }
 .appearance-panel { padding:16px; border-radius:14px; background:var(--card); }
 .appearance-panel > label { display:block; margin-bottom:7px; color:var(--muted);
                             font-size:.9rem; font-weight:600; }
@@ -232,7 +256,7 @@ input:focus, select:focus { outline:2px solid color-mix(in srgb, var(--primary) 
 .settings-logout { margin:0; }
 button.settings-link { width:100%; min-height:76px; padding:12px 16px; text-align:left;
                        color:var(--text); background:var(--card); }
-button.settings-link .settings-link-chevron { font-size:1.6rem; }
+button.settings-link .settings-link-chevron { display:inline-flex; }
 .menu { position:absolute; z-index:2; top:56px; right:12px; display:flex; flex-direction:column;
         min-width:130px; padding:6px; border-radius:10px; background:var(--card); box-shadow:var(--shadow); }
 .menu button { min-height:40px; text-align:left; background:transparent; }

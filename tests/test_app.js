@@ -417,6 +417,18 @@ test('settings links to the existing timers page', async t => {
   assert.equal(document.getElementById('timers-page').hidden, true);
 });
 
+test('settings navigation uses Material Symbols icons', async t => {
+  const {document} = await setup(t);
+  const names = [...document.querySelectorAll('.settings-link .material-symbols-outlined')]
+    .map(icon => icon.textContent);
+  assert.deepEqual(names, [
+    'palette', 'chevron_right', 'schedule', 'chevron_right', 'group', 'chevron_right',
+    'key', 'chevron_right', 'logout', 'chevron_right',
+  ]);
+  assert.equal(document.querySelector('#open-settings .material-symbols-outlined').textContent, 'settings');
+  assert.equal(document.querySelector('.settings-back-link .material-symbols-outlined').textContent, 'arrow_back');
+});
+
 test('appearance settings apply and save preset and custom palettes', async t => {
   const {document} = await setup(t, {devices: lamps});
   document.getElementById('open-settings').click();

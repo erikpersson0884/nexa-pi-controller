@@ -53,11 +53,6 @@ const ICONS = {
   grid: [['rect', {x: 4, y: 4, width: 6, height: 6, rx: 1}], ['rect', {x: 14, y: 4, width: 6, height: 6, rx: 1}],
     ['rect', {x: 4, y: 14, width: 6, height: 6, rx: 1}], ['rect', {x: 14, y: 14, width: 6, height: 6, rx: 1}]],
   map: [['path', {d: 'M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z'}], ['path', {d: 'M9 4v14M15 6v14'}]],
-  settings: [['line', {x1: 4, y1: 21, x2: 4, y2: 14}], ['line', {x1: 4, y1: 10, x2: 4, y2: 3}],
-    ['line', {x1: 12, y1: 21, x2: 12, y2: 12}], ['line', {x1: 12, y1: 8, x2: 12, y2: 3}],
-    ['line', {x1: 20, y1: 21, x2: 20, y2: 16}], ['line', {x1: 20, y1: 12, x2: 20, y2: 3}],
-    ['line', {x1: 2, y1: 14, x2: 6, y2: 14}], ['line', {x1: 10, y1: 8, x2: 14, y2: 8}],
-    ['line', {x1: 18, y1: 16, x2: 22, y2: 16}]],
   check: [['polyline', {points: '20 6 9 17 4 12'}]],
 };
 
@@ -302,6 +297,15 @@ function icon(name, size = 20) {
     svg.append(shape);
   });
   return svg;
+}
+
+function materialIcon(name, size = 24) {
+  const span = document.createElement('span');
+  span.className = 'material-symbols-outlined';
+  span.setAttribute('aria-hidden', 'true');
+  span.style.fontSize = `${size}px`;
+  span.textContent = name;
+  return span;
 }
 
 async function api(method, url, body) {
@@ -1545,9 +1549,9 @@ document.getElementById('delete-floor').onclick = deleteFloor;
 document.getElementById('floor-form').onsubmit = saveFloor;
 document.getElementById('room-form').onsubmit = saveRoom;
 document.getElementById('delete-room').onclick = deleteRoom;
-document.getElementById('settings-icon').append(icon('settings', 20));
-document.getElementById('settings-appearance-icon').append(icon('settings', 20));
-document.getElementById('settings-timers-icon').append(icon('clock', 20));
+document.getElementById('settings-icon').append(materialIcon('settings', 20));
+document.getElementById('settings-appearance-icon').append(materialIcon('palette', 20));
+document.getElementById('settings-timers-icon').append(materialIcon('schedule', 20));
 document.getElementById('reorder-done').onclick = () => leaveReorderMode(true);
 document.getElementById('pair-form').onsubmit = pairOutlet;
 document.getElementById('rename-form').onsubmit = saveDeviceName;

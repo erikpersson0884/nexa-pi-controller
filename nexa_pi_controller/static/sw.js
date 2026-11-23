@@ -1,7 +1,8 @@
-const CACHE_NAME = 'nexa-control-v1';
+const CACHE_NAME = 'nexa-control-v2';
 const APP_SHELL = [
   '/static/app.css',
   '/static/app.js',
+  '/static/material-symbols-settings.woff2',
   '/static/logo.svg',
   '/static/logo.png',
   '/static/manifest.webmanifest'
