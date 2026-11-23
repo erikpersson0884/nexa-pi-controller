@@ -34,6 +34,7 @@
     <div class="map-toolbar">
       <p id="map-hint" class="hint">Tap a room to switch its outlets.</p>
       <button id="add-room" class="secondary" type="button" hidden>＋ Add room</button>
+      <button id="cancel-map-edit" class="secondary" type="button" hidden>Cancel</button>
       <button id="edit-map" class="secondary" type="button">Edit layout</button>
     </div>
     <div id="map" class="map"></div>
@@ -98,6 +99,7 @@
     <div id="room-outlets" class="outlet-chips" role="group" aria-labelledby="room-outlets-heading"></div>
     <div class="dialog-actions">
       <button id="delete-room" class="danger" type="button">Delete</button>
+      <button class="secondary" type="button" data-close="room-modal">Cancel</button>
       <button class="primary full" type="submit">Save</button>
     </div>
   </form>

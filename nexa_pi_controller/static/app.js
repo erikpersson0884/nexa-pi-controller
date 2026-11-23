@@ -11,6 +11,7 @@ let dragged = null;
 let viewMode = readView();
 let rooms = [];
 let mapEditing = false;
+let mapEditingSnapshot = null;
 let editingRoom = null;
 let roomUnits = [];
 let mapGesture = null;
@@ -45,7 +46,7 @@ function setView(view) {
   viewMode = ['grid', 'map'].includes(view) ? view : 'list';
   if (timersPage) showTimersPage(false);
   try { localStorage.setItem('nexa-view', viewMode); } catch (_) {}
-  if (viewMode !== 'map') mapEditing = false;
+  if (viewMode !== 'map' && mapEditing) cancelMapEditing();
   renderDevices();
   if (viewMode === 'map') refreshRooms().catch(error => showToast(error.message));
 }
@@ -215,6 +216,7 @@ function renderMap() {
   map.classList.toggle('editing', mapEditing);
   document.getElementById('edit-map').textContent = mapEditing ? 'Done' : 'Edit layout';
   document.getElementById('add-room').hidden = !mapEditing;
+  document.getElementById('cancel-map-edit').hidden = !mapEditing;
   document.getElementById('map-hint').textContent = mapEditing
     ? 'Drag rooms to move, use the corner to resize, tap to edit.'
     : 'Tap a room to switch its outlets.';
@@ -284,7 +286,7 @@ function startRoomGesture(event, room, type) {
   event.stopPropagation();
   const bounds = event.currentTarget.closest('.map-layout').getBoundingClientRect();
   mapGesture = {
-    room, type, moved: false, changed: false, startX: event.clientX, startY: event.clientY,
+    room, type, moved: false, startX: event.clientX, startY: event.clientY,
     origin: {x: room.x, y: room.y, w: room.w, h: room.h},
     scale: MAP_SIZE / (bounds.width || 1),
     node: event.currentTarget.closest('.room'),
@@ -315,7 +317,6 @@ function moveRoomGesture(event) {
   if (candidate.x === room.x && candidate.y === room.y
       && candidate.w === room.w && candidate.h === room.h) return;
   Object.assign(room, candidate);
-  g.changed = true;
   Object.assign(g.node.style, {
     left: `${room.x}%`, top: `${room.y}%`, width: `${room.w}%`, height: `${room.h}%`,
   });
@@ -331,8 +332,6 @@ async function endRoomGesture(event) {
   if (event.type === 'pointercancel') {
     Object.assign(g.room, g.origin);
     renderMap();
-  } else if (g.changed) {
-    await saveRooms();
   } else if (!g.moved) {
     openRoomModal(g.room);
   }
@@ -373,8 +372,23 @@ async function sendRoom(room, action) {
 }
 
 async function toggleMapEditing() {
-  mapEditing = !mapEditing;
-  if (!mapEditing) await refreshRooms(true).catch(error => showToast(error.message));
+  if (mapEditing) {
+    await saveRooms();
+    mapEditing = false;
+    mapEditingSnapshot = null;
+    await refreshRooms(true).catch(error => showToast(error.message));
+  } else {
+    mapEditingSnapshot = rooms.map(room => ({...room, units: [...room.units]}));
+    mapEditing = true;
+  }
+  renderMap();
+}
+
+function cancelMapEditing() {
+  if (!mapEditing) return;
+  rooms = mapEditingSnapshot || rooms;
+  mapEditingSnapshot = null;
+  mapEditing = false;
   renderMap();
 }
 
@@ -389,7 +403,6 @@ async function addRoom() {
     name: `Room ${rooms.length + 1}`, ...position, units: [],
   };
   rooms.push(room);
-  await saveRooms();
   renderMap();
   openRoomModal(room);
 }
@@ -432,7 +445,6 @@ async function saveRoom(event) {
   editingRoom.name = name;
   editingRoom.units = [...roomUnits];
   closeOverlay('room-modal');
-  await saveRooms();
   renderMap();
 }
 
@@ -440,7 +452,6 @@ async function deleteRoom() {
   if (!editingRoom) return;
   rooms = rooms.filter(room => room.id !== editingRoom.id);
   closeOverlay('room-modal');
-  await saveRooms();
   renderMap();
 }
 
@@ -1073,6 +1084,7 @@ document.querySelector('[data-view="list"]').append(icon('list', 22));
 document.querySelector('[data-view="grid"]').append(icon('grid', 22));
 document.querySelector('[data-view="map"]').append(icon('map', 22));
 document.getElementById('edit-map').onclick = toggleMapEditing;
+document.getElementById('cancel-map-edit').onclick = cancelMapEditing;
 document.getElementById('add-room').onclick = addRoom;
 document.getElementById('room-form').onsubmit = saveRoom;
 document.getElementById('delete-room').onclick = deleteRoom;

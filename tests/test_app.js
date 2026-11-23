@@ -492,6 +492,10 @@ test('new rooms are placed without overlapping existing rooms', async t => {
   await settle();
   document.getElementById('add-room').click();
   await settle();
+  assert.equal(requests.some(request => request.url === '/api/rooms' && request.method === 'PUT'), false);
+  document.querySelector('#room-form [data-close="room-modal"]').click();
+  document.getElementById('edit-map').click();
+  await settle();
   const savedRooms = requests.find(request => request.url === '/api/rooms' && request.method === 'PUT').body;
   assert.equal(savedRooms.length, 2);
   assert.deepEqual(
@@ -528,6 +532,57 @@ test('rooms cannot be moved or resized into another room', async t => {
   await settle();
   assert.equal(room.style.width, '30%');
   assert.equal(requests.some(request => request.url === '/api/rooms' && request.method === 'PUT'), false);
+});
+
+test('canceling map editing discards layout changes', async t => {
+  const {window, document, requests} = await setup(t, {
+    view: 'map',
+    rooms: [{id: 'r1', name: 'Hall', x: 0, y: 0, w: 30, h: 30, units: []}],
+  });
+  document.getElementById('edit-map').click();
+  await settle();
+  document.querySelector('.map-layout').getBoundingClientRect = () => ({width: 100});
+  const room = document.querySelector('.room');
+  room.dispatchEvent(new window.MouseEvent('pointerdown', {
+    bubbles: true, cancelable: true, clientX: 0, clientY: 0,
+  }));
+  window.dispatchEvent(new window.MouseEvent('pointermove', {clientX: 10, clientY: 0}));
+  window.dispatchEvent(new window.MouseEvent('pointerup'));
+  await settle();
+  assert.equal(room.style.left, '10%');
+  assert.equal(requests.some(request => request.url === '/api/rooms' && request.method === 'PUT'), false);
+
+  document.getElementById('cancel-map-edit').click();
+  assert.equal(document.querySelector('.room').style.left, '0%');
+  assert.equal(document.getElementById('edit-map').textContent, 'Edit layout');
+  assert.equal(requests.some(request => request.url === '/api/rooms' && request.method === 'PUT'), false);
+});
+
+test('canceling room details discards unsaved name and outlet changes', async t => {
+  const {window, document, requests} = await setup(t, {
+    view: 'map',
+    devices: [{unit: 1, name: 'Lamp', state: false}],
+    rooms: [{id: 'r1', name: 'Hall', x: 0, y: 0, w: 30, h: 30, units: []}],
+  });
+  document.getElementById('edit-map').click();
+  await settle();
+  const openRoom = () => {
+    document.querySelector('.room').dispatchEvent(new window.MouseEvent('pointerdown', {
+      bubbles: true, cancelable: true, clientX: 0, clientY: 0,
+    }));
+    window.dispatchEvent(new window.MouseEvent('pointerup'));
+  };
+  openRoom();
+  document.getElementById('room-name').value = 'Bedroom';
+  document.querySelector('#room-outlets .outlet-chip').click();
+  document.querySelector('#room-form [data-close="room-modal"]').click();
+
+  openRoom();
+  assert.equal(document.getElementById('room-name').value, 'Hall');
+  assert.equal(document.querySelector('#room-outlets .outlet-chip').getAttribute('aria-pressed'), 'false');
+  assert.equal(requests.some(request => request.url === '/api/rooms' && request.method === 'PUT'), false);
+  document.querySelector('#room-form [data-close="room-modal"]').click();
+  document.getElementById('cancel-map-edit').click();
 });
 
 test('leaving the timers page by choosing a view shows outlets again', async t => {
