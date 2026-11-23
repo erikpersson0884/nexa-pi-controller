@@ -12,6 +12,7 @@ let viewMode = readView();
 let rooms = [];
 let mapEditing = false;
 let mapEditingSnapshot = null;
+let allowRoomOverlap = false;
 let editingRoom = null;
 let roomUnits = [];
 let mapGesture = null;
@@ -217,6 +218,10 @@ function renderMap() {
   document.getElementById('edit-map').textContent = mapEditing ? 'Done' : 'Edit layout';
   document.getElementById('add-room').hidden = !mapEditing;
   document.getElementById('cancel-map-edit').hidden = !mapEditing;
+  const overlapToggle = document.getElementById('toggle-room-overlap');
+  overlapToggle.hidden = !mapEditing;
+  overlapToggle.textContent = `Overlap: ${allowRoomOverlap ? 'On' : 'Off'}`;
+  overlapToggle.setAttribute('aria-pressed', String(allowRoomOverlap));
   document.getElementById('map-hint').textContent = mapEditing
     ? 'Drag rooms to move, use the corner to resize, tap to edit.'
     : 'Tap a room to switch its outlets.';
@@ -262,7 +267,7 @@ function clampRoom(room) {
 }
 
 function overlapsRoom(room, ignoredId = room.id) {
-  return rooms.some(other => other.id !== ignoredId
+  return !allowRoomOverlap && rooms.some(other => other.id !== ignoredId
     && room.x < other.x + other.w && room.x + room.w > other.x
     && room.y < other.y + other.h && room.y + room.h > other.y);
 }
@@ -390,6 +395,13 @@ function cancelMapEditing() {
   mapEditingSnapshot = null;
   mapEditing = false;
   renderMap();
+}
+
+function toggleRoomOverlap() {
+  allowRoomOverlap = !allowRoomOverlap;
+  const button = document.getElementById('toggle-room-overlap');
+  button.textContent = `Overlap: ${allowRoomOverlap ? 'On' : 'Off'}`;
+  button.setAttribute('aria-pressed', String(allowRoomOverlap));
 }
 
 async function addRoom() {
@@ -1085,6 +1097,7 @@ document.querySelector('[data-view="grid"]').append(icon('grid', 22));
 document.querySelector('[data-view="map"]').append(icon('map', 22));
 document.getElementById('edit-map').onclick = toggleMapEditing;
 document.getElementById('cancel-map-edit').onclick = cancelMapEditing;
+document.getElementById('toggle-room-overlap').onclick = toggleRoomOverlap;
 document.getElementById('add-room').onclick = addRoom;
 document.getElementById('room-form').onsubmit = saveRoom;
 document.getElementById('delete-room').onclick = deleteRoom;

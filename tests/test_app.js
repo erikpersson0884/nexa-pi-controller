@@ -534,6 +534,37 @@ test('rooms cannot be moved or resized into another room', async t => {
   assert.equal(requests.some(request => request.url === '/api/rooms' && request.method === 'PUT'), false);
 });
 
+test('overlap toggle allows rooms to be moved over each other', async t => {
+  const {window, document, requests} = await setup(t, {
+    view: 'map',
+    rooms: [
+      {id: 'r1', name: 'Hall', x: 0, y: 0, w: 30, h: 30, units: []},
+      {id: 'r2', name: 'Kitchen', x: 40, y: 0, w: 30, h: 30, units: []},
+    ],
+  });
+  document.getElementById('edit-map').click();
+  await settle();
+  const overlapToggle = document.getElementById('toggle-room-overlap');
+  assert.equal(overlapToggle.getAttribute('aria-pressed'), 'false');
+  overlapToggle.click();
+  assert.equal(overlapToggle.getAttribute('aria-pressed'), 'true');
+
+  document.querySelector('.map-layout').getBoundingClientRect = () => ({width: 100});
+  const room = document.querySelector('[data-room="r1"]');
+  room.dispatchEvent(new window.MouseEvent('pointerdown', {
+    bubbles: true, cancelable: true, clientX: 0, clientY: 0,
+  }));
+  window.dispatchEvent(new window.MouseEvent('pointermove', {clientX: 15, clientY: 0}));
+  window.dispatchEvent(new window.MouseEvent('pointerup'));
+  await settle();
+  assert.equal(room.style.left, '15%');
+
+  document.getElementById('edit-map').click();
+  await settle();
+  const savedRooms = requests.find(request => request.url === '/api/rooms' && request.method === 'PUT').body;
+  assert.equal(savedRooms[0].x, 15);
+});
+
 test('canceling map editing discards layout changes', async t => {
   const {window, document, requests} = await setup(t, {
     view: 'map',

@@ -218,7 +218,7 @@ body { padding-bottom:calc(84px + env(safe-area-inset-bottom)); }
 }
 
 /* Map view */
-.map-toolbar { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+.map-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:12px; }
 .map-toolbar .hint { flex:1; margin:0; }
 .map { position:relative; width:100%; aspect-ratio:1 / 1; border-radius:16px; overflow:hidden;
        background:var(--card); touch-action:manipulation; }
