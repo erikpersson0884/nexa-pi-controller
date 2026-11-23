@@ -134,7 +134,7 @@ Create a `.env` file in the project directory for required secrets and local ove
 |---|---|---|
 | `PORT` | `8080` | Port the web UI listens on |
 | `HOST` | `127.0.0.1` | Network interface to bind to. Use `0.0.0.0` only when the app must be reachable from other devices |
-| `DATA_DIR` | project `data/` folder (`/data` in Docker) | Where `nexa_state.json`, `nexa_devices.json`, `nexa_timers.json` and `nexa_rooms.json` are stored |
+| `DATA_DIR` | project `data/` folder (`/data` in Docker) | Where controller state, map data, and the `nexa_users.sqlite3` account database are stored |
 | `GPIO_MODE` | `hardware` | Set to `mock` on a development computer without GPIO hardware. Pairing and switching are simulated |
 | `LG_WD` | private temporary directory | Optional lgpio working directory. If set, it must exist, be writable, and be protected from other users; lgpio changes the process working directory to this location |
 | `GPIO_CHIP` | `15` | GPIO chip number for the Pi header (`pinctrl-rp1` on the default setup) |
@@ -145,11 +145,27 @@ Create a `.env` file in the project directory for required secrets and local ove
 | `REPEAT` | `6` | Number of times each radio command is sent |
 | `TZ` | system time zone | Time zone used by schedules (set it in Docker) |
 | `SECRET_KEY` | required | Stable random secret used to sign sessions and CSRF tokens |
-| `AUTH_USERNAME` | `admin` | Username required to sign in |
-| `AUTH_PASSWORD` | unset | Password used for login |
+| `AUTH_USERNAME` | `admin` | Username imported as the first administrator when the account database is initialized |
+| `AUTH_PASSWORD` | unset | Password imported for the first administrator; required for initial account setup |
 | `API_KEY` | unset | Optional shared Bearer token for API access; unset disables API-key access |
 | `COOKIE_SECURE` | `false` | Set to `true` when the app is served over HTTPS |
 | `SESSION_LIFETIME_DAYS` | `7` | How many days a login stays valid after your last activity |
+
+### User accounts
+
+On the first launch, Nexa Control imports `AUTH_USERNAME` and `AUTH_PASSWORD`
+as the initial administrator and stores the password as a hash in
+`nexa_users.sqlite3` under `DATA_DIR`. Keep the account database with the rest
+of the persistent data. After this one-time import, changing those environment
+variables does not change account credentials; administrators can manage users
+from **Settings → Users**.
+
+Administrators can create other administrators or operators, activate or
+deactivate accounts, and issue temporary passwords. Passwords must be at
+least 6 characters. Users must choose a new password before accessing the app.
+Operators can use the controller but cannot manage accounts. The shared
+`API_KEY` continues to authorize its existing API
+operations and does not grant account-management access.
 
 ### API key access
 

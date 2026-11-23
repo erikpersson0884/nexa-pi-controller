@@ -31,6 +31,7 @@
     <button id="page-add-timer" class="add-card" type="button">＋ Add timer</button>
   </section>
   <section id="settings-page" hidden>
+    <p class="muted">Signed in as {{ current_user.username }} · {{ current_user.role }}</p>
     <div class="settings-list">
       <a id="settings-appearance-link" class="settings-link" href="#appearance">
         <span id="settings-appearance-icon" class="settings-link-icon"></span>
@@ -48,6 +49,35 @@
         </span>
         <span class="settings-link-chevron" aria-hidden="true">›</span>
       </a>
+      {% if current_user.role == "admin" %}
+      <a class="settings-link" href="{{ url_for('admin_users') }}">
+        <span class="settings-link-icon" aria-hidden="true">♙</span>
+        <span class="settings-link-copy">
+          <span class="settings-link-title">Users</span>
+          <span class="settings-link-description">Manage accounts and access</span>
+        </span>
+        <span class="settings-link-chevron" aria-hidden="true">›</span>
+      </a>
+      {% endif %}
+      <a class="settings-link" href="{{ url_for('change_password') }}">
+        <span class="settings-link-icon" aria-hidden="true">▣</span>
+        <span class="settings-link-copy">
+          <span class="settings-link-title">Change password</span>
+          <span class="settings-link-description">Update your sign-in password</span>
+        </span>
+        <span class="settings-link-chevron" aria-hidden="true">›</span>
+      </a>
+      <form class="settings-logout" method="post" action="{{ url_for('logout') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="settings-link" type="submit">
+          <span class="settings-link-icon" aria-hidden="true">↪</span>
+          <span class="settings-link-copy">
+            <span class="settings-link-title">Sign out</span>
+            <span class="settings-link-description">End this browser session</span>
+          </span>
+          <span class="settings-link-chevron" aria-hidden="true">›</span>
+        </button>
+      </form>
     </div>
   </section>
   <section id="appearance-page" hidden>

@@ -13,8 +13,9 @@ import time
 import uuid
 from collections import deque
 from datetime import datetime, timedelta
+from functools import wraps
 
-from flask import Flask, g, jsonify, render_template, request, send_from_directory
+from flask import Flask, abort, flash, g, jsonify, render_template, request, send_from_directory
 from flask import redirect, session, url_for
 from flask_wtf.csrf import CSRFProtect
 
@@ -23,6 +24,7 @@ from . import radio
 from . import receiver
 from . import scheduler as scheduler_module
 from . import storage
+from . import user_store
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +41,7 @@ SECRET_KEY = config.SECRET_KEY
 AUTH_USERNAME = config.AUTH_USERNAME
 AUTH_PASSWORD = config.AUTH_PASSWORD
 API_KEY = config.API_KEY
+USERS_FILE = config.USERS_FILE
 PROJECT_DIR = config.PROJECT_DIR
 DATA_DIR = config.DATA_DIR
 STATE_FILE = config.STATE_FILE
@@ -66,8 +69,6 @@ app.config.update(
 )
 csrf = CSRFProtect()
 csrf.init_app(app)
-if AUTH_PASSWORD is None:
-    raise RuntimeError("AUTH_PASSWORD must be configured")
 
 
 # ---------- Legacy-compatible storage/radio wrappers ----------
@@ -212,6 +213,43 @@ if GPIO_MODE == "mock":
 
 # ---------- Web page ----------
 
+def admin_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if (
+            getattr(g, "api_key_authenticated", False)
+            or getattr(g, "current_user", None) is None
+            or g.current_user["role"] != "admin"
+        ):
+            abort(403)
+        return view(*args, **kwargs)
+
+    return wrapped
+
+
+@app.before_request
+def initialize_user_store():
+    if request.endpoint in {"static", "service_worker"}:
+        return None
+    try:
+        user_store.initialize(USERS_FILE, AUTH_USERNAME, AUTH_PASSWORD)
+    except user_store.BootstrapRequiredError as error:
+        logger.error("User account bootstrap is required: %s", error)
+        if request.path.startswith("/api/"):
+            return jsonify(error="Initial administrator setup is required"), 503
+        return render_template("setup_required.html"), 503
+    except user_store.LastAdminError:
+        logger.exception("The account store has no active administrator")
+        if request.path.startswith("/api/"):
+            return jsonify(error="No active administrator is configured"), 503
+        return render_template("setup_required.html"), 503
+
+
+@app.context_processor
+def inject_current_user():
+    return {"current_user": getattr(g, "current_user", None)}
+
+
 @app.before_request
 def authenticate_api_key():
     if not request.path.startswith("/api/"):
@@ -230,8 +268,31 @@ def authenticate_api_key():
             return None
         return jsonify(error="invalid API key"), 401
 
-    if not session.get("authenticated"):
+    if not session.get("user_id"):
         return jsonify(error="authentication required"), 401
+    return None
+
+
+@app.before_request
+def load_current_user():
+    g.current_user = None
+    if request.endpoint in {"static", "service_worker"}:
+        return None
+    user_id = session.get("user_id")
+    if user_id is None:
+        return None
+    if not isinstance(user_id, int):
+        session.clear()
+        return None
+    user = user_store.get_user_by_id(USERS_FILE, user_id)
+    if (
+        user is None
+        or not user["is_active"]
+        or user["session_version"] != session.get("session_version")
+    ):
+        session.clear()
+        return None
+    g.current_user = user
     return None
 
 
@@ -246,20 +307,29 @@ def protect_csrf():
 
 @app.before_request
 def require_login():
-    if request.endpoint in {"login", "login_submit", "static", "service_worker"}:
+    if request.endpoint in {
+        "login", "login_submit", "logout", "static", "service_worker",
+    }:
         return None
-    if not session.get("authenticated") and not getattr(
-        g, "api_key_authenticated", False
-    ):
+    if getattr(g, "api_key_authenticated", False):
+        return None
+    if getattr(g, "current_user", None) is None:
         if request.path.startswith("/api/"):
             return jsonify(error="authentication required"), 401
         return redirect(url_for("login", next=request.full_path))
+    if (
+        g.current_user["must_change_password"]
+        and request.endpoint != "change_password"
+    ):
+        if request.path.startswith("/api/"):
+            return jsonify(error="password change required"), 403
+        return redirect(url_for("change_password"))
     return None
 
 
 @app.get("/login")
 def login():
-    if session.get("authenticated"):
+    if getattr(g, "current_user", None):
         return redirect(url_for("index"))
     return render_template("login.html")
 
@@ -268,18 +338,17 @@ def login():
 def login_submit():
     username = request.form.get("username", "")
     password = request.form.get("password", "")
-    try:
-        valid = (
-            username == AUTH_USERNAME
-            and hmac.compare_digest(password, AUTH_PASSWORD)
-        )
-    except TypeError:
-        valid = False
-    if not valid:
+    user = user_store.get_user_by_username(USERS_FILE, username.strip())
+    if user is None or not user["is_active"] or not user_store.verify_password(
+        user, password
+    ):
         return render_template("login.html", error="Invalid username or password", username=username), 401
     session.clear()
     session.permanent = True
-    session["authenticated"] = True
+    session["user_id"] = user["id"]
+    session["session_version"] = user["session_version"]
+    if user["must_change_password"]:
+        return redirect(url_for("change_password"))
     next_url = request.form.get("next", "")
     destination = next_url if next_url.startswith("/") and not next_url.startswith("//") else url_for("index")
     return redirect(destination)
@@ -289,6 +358,131 @@ def login_submit():
 def logout():
     session.clear()
     return redirect(url_for("login"))
+
+
+@app.route("/account/password", methods=["GET", "POST"])
+def change_password():
+    user = g.current_user
+    forced = user["must_change_password"]
+    if request.method == "GET":
+        return render_template("change_password.html", forced=forced)
+    current_password = request.form.get("current_password", "")
+    new_password = request.form.get("new_password", "")
+    confirmation = request.form.get("confirm_password", "")
+    error = None
+    if not forced and not user_store.verify_password(user, current_password):
+        error = "Current password is incorrect"
+    elif len(new_password) < 6:
+        error = "Password must be at least 6 characters"
+    elif new_password != confirmation:
+        error = "Passwords do not match"
+    if error:
+        return render_template(
+            "change_password.html", forced=forced, error=error
+        ), 400
+    updated = user_store.set_password(
+        USERS_FILE, user["id"], new_password, must_change_password=False
+    )
+    session.clear()
+    session.permanent = True
+    session["user_id"] = updated["id"]
+    session["session_version"] = updated["session_version"]
+    return redirect(url_for("index"))
+
+
+@app.get("/admin/users")
+@admin_required
+def admin_users():
+    return render_template(
+        "users.html",
+        users=user_store.list_users(USERS_FILE),
+        current_user=g.current_user,
+    )
+
+
+@app.post("/admin/users")
+@admin_required
+def create_account():
+    username = request.form.get("username", "").strip()
+    password = request.form.get("temporary_password", "")
+    role = request.form.get("role", "")
+    reopen_dialog = False
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{2,31}", username):
+        flash("Username must be 3–32 letters, numbers, dots, underscores or hyphens.")
+        reopen_dialog = True
+    elif len(password) < 6:
+        flash("Temporary passwords must be at least 6 characters.")
+        reopen_dialog = True
+    elif role not in {"admin", "operator"}:
+        flash("Choose a valid account role.")
+        reopen_dialog = True
+    else:
+        try:
+            user_store.create_user(USERS_FILE, username, password, role)
+            flash(f"Created {username}. They must change the temporary password at sign-in.")
+        except user_store.DuplicateUsernameError:
+            flash("That username is already in use.")
+            reopen_dialog = True
+    return redirect(url_for("admin_users", create="1" if reopen_dialog else None))
+
+
+@app.post("/admin/users/<int:user_id>/role")
+@admin_required
+def change_account_role(user_id):
+    role = request.form.get("role", "")
+    if role not in {"admin", "operator"}:
+        flash("Choose a valid account role.")
+    elif user_id == g.current_user["id"]:
+        flash("You cannot change your own role.")
+    else:
+        try:
+            user_store.update_user(USERS_FILE, user_id, role=role)
+            flash("Account role updated.")
+        except user_store.LastAdminError as error:
+            flash(str(error))
+        except user_store.UserNotFoundError:
+            abort(404)
+    return redirect(url_for("admin_users"))
+
+
+@app.post("/admin/users/<int:user_id>/active")
+@admin_required
+def change_account_status(user_id):
+    active_value = request.form.get("active")
+    if active_value not in {"true", "false"}:
+        flash("Choose a valid account status.")
+    elif user_id == g.current_user["id"] and active_value == "false":
+        flash("You cannot deactivate your own account.")
+    else:
+        active = active_value == "true"
+        try:
+            user_store.update_user(USERS_FILE, user_id, is_active=active)
+            flash("Account activated." if active else "Account deactivated.")
+        except user_store.LastAdminError as error:
+            flash(str(error))
+        except user_store.UserNotFoundError:
+            abort(404)
+    return redirect(url_for("admin_users"))
+
+
+@app.post("/admin/users/<int:user_id>/reset-password")
+@admin_required
+def reset_account_password(user_id):
+    password = request.form.get("temporary_password", "")
+    if user_id == g.current_user["id"]:
+        flash("Use Change password to update your own password.")
+    elif len(password) < 6:
+        flash("Temporary passwords must be at least 6 characters.")
+    else:
+        try:
+            user_store.set_password(
+                USERS_FILE, user_id, password, must_change_password=True
+            )
+            flash("Temporary password set. The user must change it at sign-in.")
+        except user_store.UserNotFoundError:
+            abort(404)
+    return redirect(url_for("admin_users"))
+
 
 # ---------- Helpers ----------
 def device_name(unit):

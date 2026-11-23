@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+    <title>Users - Nexa Control</title>
+</head>
+<body>
+<main class="account-main">
+    <a class="settings-back-link" href="{{ url_for('index') }}">‹ Nexa Control</a>
+    <header class="account-heading">
+        <h1>User management</h1>
+        <p class="muted">Signed in as {{ current_user.username }}</p>
+    </header>
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <div class="account-messages" role="status">
+            {% for message in messages %}<p>{{ message }}</p>{% endfor %}
+        </div>
+        {% endif %}
+    {% endwith %}
+    <section class="account-users" aria-label="Existing accounts">
+        <div class="account-section-heading">
+            <h2>Accounts</h2>
+            <button id="open-create-account" class="secondary" type="button"
+                    aria-haspopup="dialog" aria-controls="create-account-dialog">＋ Create account</button>
+        </div>
+        <dialog id="create-account-dialog" class="dialog account-create-dialog">
+            <form method="dialog">
+                <button class="close-button" type="submit" aria-label="Close dialog">×</button>
+            </form>
+            <h2>Create account</h2>
+            <p class="muted">The user must change this temporary password at first sign-in.</p>
+            <form id="create-account-form" method="post" action="{{ url_for('create_account') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <label for="new-username">Username</label>
+                <input id="new-username" name="username" type="text" minlength="3" maxlength="32" autocomplete="off" autofocus required>
+                <label for="new-role">Role</label>
+                <select id="new-role" name="role">
+                    <option value="operator">Operator</option>
+                    <option value="admin">Admin</option>
+                </select>
+                <label for="temporary-password">Temporary password</label>
+                <input id="temporary-password" name="temporary_password" type="password" minlength="6" autocomplete="new-password" required>
+            </form>
+            <div class="account-create-actions">
+                <form method="dialog">
+                    <button class="secondary" type="submit">Cancel</button>
+                </form>
+                <button class="primary" type="submit" form="create-account-form">Create user</button>
+            </div>
+        </dialog>
+        {% for user in users %}
+        <article class="account-panel user-panel">
+            <div class="user-heading">
+                <div>
+                    <h3>{{ user.username }}</h3>
+                    <p class="muted">{{ "Active" if user.is_active else "Inactive" }}{% if user.must_change_password %} · Password change required{% endif %}</p>
+                </div>
+                {% if user.id == current_user.id %}<span class="user-you">You</span>{% endif %}
+            </div>
+            <form class="account-form-row" method="post" action="{{ url_for('change_account_role', user_id=user.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <label class="sr-only" for="role-{{ user.id }}">Role for {{ user.username }}</label>
+                <select id="role-{{ user.id }}" name="role" {% if user.id == current_user.id %}disabled{% endif %}>
+                    <option value="operator" {% if user.role == "operator" %}selected{% endif %}>Operator</option>
+                    <option value="admin" {% if user.role == "admin" %}selected{% endif %}>Admin</option>
+                </select>
+                <button class="secondary" type="submit" {% if user.id == current_user.id %}disabled{% endif %}>Save role</button>
+            </form>
+            <form class="account-form-row" method="post" action="{{ url_for('change_account_status', user_id=user.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="active" value="{{ 'false' if user.is_active else 'true' }}">
+                <button class="secondary" type="submit" {% if user.id == current_user.id %}disabled{% endif %}>
+                    {{ "Deactivate" if user.is_active else "Activate" }}
+                </button>
+            </form>
+            <form class="account-password-form" method="post" action="{{ url_for('reset_account_password', user_id=user.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                {% if user.id == current_user.id %}
+                <p class="muted">Use Change password in Settings to update your own password.</p>
+                {% else %}
+                <label for="reset-password-{{ user.id }}">New temporary password</label>
+                <input id="reset-password-{{ user.id }}" name="temporary_password" type="password" minlength="6" autocomplete="new-password" required>
+                <button class="secondary" type="submit">Reset password</button>
+                {% endif %}
+            </form>
+        </article>
+        {% else %}
+        <p class="empty">No accounts found.</p>
+        {% endfor %}
+    </section>
+</main>
+<script src="{{ url_for('static', filename='users.js') }}"></script>
+</body>
+</html>

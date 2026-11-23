@@ -1,6 +1,7 @@
 import unittest
 import re
 import os
+import tempfile
 from unittest.mock import call, patch
 
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
@@ -12,12 +13,28 @@ from nexa_pi_controller import webui
 
 class WebUiTestCase(unittest.TestCase):
     def setUp(self):
+        self.previous_users_file = webui.USERS_FILE
+        self.previous_username = webui.AUTH_USERNAME
+        self.previous_password = webui.AUTH_PASSWORD
+        self.addCleanup(setattr, webui, "USERS_FILE", self.previous_users_file)
+        self.addCleanup(setattr, webui, "AUTH_USERNAME", self.previous_username)
+        self.addCleanup(setattr, webui, "AUTH_PASSWORD", self.previous_password)
+        self.user_directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.user_directory.cleanup)
+        webui.USERS_FILE = os.path.join(self.user_directory.name, "users.sqlite3")
         webui.AUTH_USERNAME = "admin"
         webui.AUTH_PASSWORD = "test-password"
+        webui.user_store.initialize(
+            webui.USERS_FILE, webui.AUTH_USERNAME, webui.AUTH_PASSWORD
+        )
+        self.admin = webui.user_store.get_user_by_username(
+            webui.USERS_FILE, "admin"
+        )
         self.client = webui.app.test_client()
         self.client.application.config["WTF_CSRF_ENABLED"] = False
         with self.client.session_transaction() as session:
-            session["authenticated"] = True
+            session["user_id"] = self.admin["id"]
+            session["session_version"] = self.admin["session_version"]
         self.devices = webui.configured_devices
         self.state = webui.state
         self.timers = webui.timers
@@ -115,7 +132,156 @@ class WebUiTestCase(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 302)
         with self.client.session_transaction() as session:
-            self.assertTrue(session["authenticated"])
+            self.assertEqual(session["user_id"], self.admin["id"])
+            self.assertIn("session_version", session)
+
+    def test_temporary_password_requires_change_before_app_access(self):
+        operator = webui.user_store.create_user(
+            webui.USERS_FILE, "operator", "temporary-passphrase", "operator"
+        )
+        with self.client.session_transaction() as session:
+            session.clear()
+        login = self.client.post("/login", data={
+            "username": "operator", "password": "temporary-passphrase",
+        })
+        self.assertEqual(login.status_code, 302)
+        self.assertEqual(login.location, "/account/password")
+        self.assertEqual(self.client.get("/").location, "/account/password")
+
+        changed = self.client.post("/account/password", data={
+            "new_password": "123456",
+            "confirm_password": "123456",
+        })
+        self.assertEqual(changed.status_code, 302)
+        self.assertEqual(self.client.get("/").status_code, 200)
+        updated = webui.user_store.get_user_by_id(
+            webui.USERS_FILE, operator["id"]
+        )
+        self.assertFalse(updated["must_change_password"])
+
+    def test_password_change_has_a_cancel_action(self):
+        response = self.client.get("/account/password")
+        self.assertIn('href="/#settings"', response.get_data(as_text=True))
+
+        with self.client.session_transaction() as session:
+            session.clear()
+        temporary = webui.user_store.create_user(
+            webui.USERS_FILE, "temporary", "temporary-passphrase", "operator"
+        )
+        with self.client.session_transaction() as session:
+            session["user_id"] = temporary["id"]
+            session["session_version"] = temporary["session_version"]
+        response = self.client.get("/account/password")
+        self.assertIn(
+            'form="cancel-form">Cancel and sign out</button>',
+            response.get_data(as_text=True),
+        )
+
+        cancelled = self.client.post("/logout")
+        self.assertEqual(cancelled.status_code, 302)
+        page = self.client.get("/")
+        self.assertEqual(page.status_code, 302)
+        self.assertTrue(page.location.startswith("/login?"))
+        self.assertNotIn("password", page.location)
+
+    def test_admin_can_create_users_with_temporary_passwords(self):
+        response = self.client.post("/admin/users", data={
+            "username": "new-operator",
+            "role": "operator",
+            "temporary_password": "abcdef",
+        })
+        self.assertEqual(response.status_code, 302)
+        created = webui.user_store.get_user_by_username(
+            webui.USERS_FILE, "new-operator"
+        )
+        self.assertEqual(created["role"], "operator")
+        self.assertTrue(created["must_change_password"])
+
+    def test_temporary_password_requires_at_least_six_characters(self):
+        response = self.client.post("/admin/users", data={
+            "username": "short-password",
+            "role": "operator",
+            "temporary_password": "abcde",
+        })
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("create=1", response.location)
+        self.assertIsNone(
+            webui.user_store.get_user_by_username(
+                webui.USERS_FILE, "short-password"
+            )
+        )
+
+    def test_account_creation_is_opened_from_a_button(self):
+        response = self.client.get("/admin/users")
+        html = response.get_data(as_text=True)
+        self.assertIn('id="open-create-account"', html)
+        self.assertIn('<dialog id="create-account-dialog"', html)
+        self.assertIn('src="/static/users.js"', html)
+
+        with self.client.get("/static/users.js") as script:
+            self.assertEqual(script.status_code, 200)
+            self.assertIn(b"createAccountDialog.showModal()", script.data)
+
+    def test_invalid_account_creation_reopens_the_dialog(self):
+        response = self.client.post("/admin/users", data={
+            "username": "ab",
+            "role": "operator",
+            "temporary_password": "temporary-passphrase",
+        })
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("create=1", response.location)
+
+    def test_operator_cannot_manage_user_accounts(self):
+        operator = webui.user_store.create_user(
+            webui.USERS_FILE, "operator", "temporary-passphrase", "operator"
+        )
+        webui.user_store.set_password(
+            webui.USERS_FILE, operator["id"], "operator-password", False
+        )
+        operator = webui.user_store.get_user_by_id(
+            webui.USERS_FILE, operator["id"]
+        )
+        with self.client.session_transaction() as session:
+            session["user_id"] = operator["id"]
+            session["session_version"] = operator["session_version"]
+
+        self.assertEqual(self.client.get("/admin/users").status_code, 403)
+
+    def test_last_active_admin_cannot_be_deactivated(self):
+        invalid = self.client.post(
+            f"/admin/users/{self.admin['id']}/active",
+            data={"active": "invalid"},
+        )
+        self.assertEqual(invalid.status_code, 302)
+        self.assertTrue(
+            webui.user_store.get_user_by_id(
+                webui.USERS_FILE, self.admin["id"]
+            )["is_active"]
+        )
+
+        response = self.client.post(
+            f"/admin/users/{self.admin['id']}/active",
+            data={"active": "false"},
+        )
+        self.assertEqual(response.status_code, 302)
+        admin = webui.user_store.get_user_by_id(
+            webui.USERS_FILE, self.admin["id"]
+        )
+        self.assertTrue(admin["is_active"])
+
+    def test_api_key_does_not_authorize_account_management(self):
+        webui.API_KEY = "test-api-key"
+        self.addCleanup(setattr, webui, "API_KEY", None)
+        with self.client.session_transaction() as session:
+            session.clear()
+
+        response = self.client.get(
+            "/admin/users",
+            headers={"Authorization": "Bearer test-api-key"},
+        )
+        self.assertEqual(response.status_code, 302)
 
     def test_login_rejects_wrong_password(self):
         with self.client.session_transaction() as session:

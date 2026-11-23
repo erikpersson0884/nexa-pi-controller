@@ -151,6 +151,48 @@ input:focus, select:focus { outline:2px solid color-mix(in srgb, var(--primary) 
 .auth-card .primary { margin-top:16px; }
 .auth-card h1 { margin-bottom:6px; }
 .auth-error { padding:10px; border-radius:8px; color:#fff; background:var(--danger); }
+.action-button { display:inline-flex; align-items:center; justify-content:center; min-height:44px;
+                 padding:10px 14px; border-radius:10px; background:var(--btn); color:var(--text);
+                 text-decoration:none; }
+.password-actions { align-items:stretch; }
+.password-actions > button, .password-actions > .action-button { flex:1; min-height:44px; margin:0; }
+.password-actions .primary { margin-top:0; }
+.password-actions form[hidden] { display:none; }
+.account-main { max-width:620px; }
+.account-heading { margin-bottom:16px; }
+.account-section-heading { display:flex; align-items:center; justify-content:space-between;
+                           gap:12px; margin:20px 0 10px; }
+.account-section-heading h2 { margin:0; }
+.account-section-heading button { white-space:nowrap; }
+.account-create-dialog { position:fixed; inset:0; width:min(400px, calc(100vw - 32px));
+                         max-width:none; max-height:calc(100vh - 32px); margin:auto;
+                         overflow:auto; border:0; color:var(--text); }
+.account-create-dialog::backdrop { background:rgba(0,0,0,.55); }
+.account-create-dialog h2 { margin-right:40px; margin-bottom:6px; }
+.account-create-actions { display:flex; align-items:center; justify-content:flex-end;
+                          gap:8px; margin-top:20px; }
+.account-create-actions form { margin:0; }
+.account-panel { margin:0 0 14px; padding:16px; border-radius:14px; background:var(--card); }
+.account-panel h2 { margin-bottom:6px; }
+.account-panel h3 { margin:0; font-size:1.05rem; }
+.account-panel label:not(.sr-only) { display:block; margin:14px 0 7px; color:var(--muted);
+                                    font-size:.9rem; font-weight:600; }
+.account-panel .primary { margin-top:16px; }
+.account-users > h2 { margin:20px 0 10px; }
+.user-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.user-you { padding:4px 9px; border-radius:999px; background:var(--btn); color:var(--muted); font-size:.8rem; }
+.account-form-row { display:flex; align-items:center; gap:8px; margin-top:12px; }
+.account-form-row select { flex:1; min-width:0; }
+.account-form-row button, .account-password-form button { flex:none; }
+.account-password-form { margin-top:14px; padding-top:2px; border-top:1px solid var(--line); }
+.account-password-form button { margin-top:8px; }
+.account-messages { margin:0 0 14px; padding:2px 14px; border-radius:12px;
+                    background:var(--card); color:var(--text); }
+.account-messages p { margin:10px 0; }
+.settings-logout { margin:0; }
+button.settings-link { width:100%; min-height:76px; padding:12px 16px; text-align:left;
+                       color:var(--text); background:var(--card); }
+button.settings-link .settings-link-chevron { font-size:1.6rem; }
 .menu { position:absolute; z-index:2; top:56px; right:12px; display:flex; flex-direction:column;
         min-width:130px; padding:6px; border-radius:10px; background:var(--card); box-shadow:var(--shadow); }
 .menu button { min-height:40px; text-align:left; background:transparent; }
