@@ -83,6 +83,15 @@ input:focus, select:focus { outline:2px solid color-mix(in srgb, var(--primary) 
 .timer-row { display:flex; align-items:center; justify-content:space-between; gap:12px;
              min-height:68px; padding:12px 0; border-top:1px solid var(--line); }
 .timer-row button { flex-shrink:0; }
+.settings-list { display:flex; flex-direction:column; gap:10px; }
+.settings-link { display:flex; align-items:center; gap:14px; min-height:76px; padding:12px 16px;
+                 border-radius:14px; background:var(--card); color:var(--text); text-decoration:none; }
+.settings-link-icon { display:inline-flex; align-items:center; justify-content:center; flex:none;
+                      width:40px; height:40px; border-radius:50%; background:var(--btn); color:var(--muted); }
+.settings-link-copy { display:flex; flex:1; min-width:0; flex-direction:column; }
+.settings-link-title { font-weight:650; }
+.settings-link-description { color:var(--muted); font-size:.85rem; }
+.settings-link-chevron { color:var(--muted); font-size:1.6rem; line-height:1; }
 .timer-time { font-size:1.25rem; font-weight:650; }
 .timer-action { color:var(--muted); font-size:.9rem; }
 .segmented { display:flex; gap:3px; margin-bottom:14px; padding:3px; border-radius:12px;
@@ -147,10 +156,11 @@ input:focus, select:focus { outline:2px solid color-mix(in srgb, var(--primary) 
 .view-bar .view-switch button span { order:2; font-size:.75rem; }
 .view-bar .view-switch button[aria-pressed="true"] { background:transparent; color:var(--on); }
 
-.view-bar .timers-button { flex:1; position:relative; display:flex; flex-direction:column; align-items:center;
-                           justify-content:center; gap:2px; height:60px; min-height:60px; padding:0;
-                           border-radius:0; background:transparent; color:var(--muted); }
-.view-bar .timers-button > span:last-child { font-size:.75rem; }
+.view-bar .settings-button { flex:1; position:relative; display:flex; flex-direction:column; align-items:center;
+                             justify-content:center; gap:2px; height:60px; min-height:60px; padding:0;
+                             border-radius:0; background:transparent; color:var(--muted); }
+.view-bar .settings-button > span:last-child { font-size:.75rem; }
+.view-bar .settings-button[aria-pressed="true"] { color:var(--on); }
 body { padding-bottom:calc(84px + env(safe-area-inset-bottom)); }
 #outlet-list.grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px;
                     padding-bottom:80px; }

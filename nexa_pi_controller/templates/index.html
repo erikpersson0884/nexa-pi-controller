@@ -30,6 +30,18 @@
     <div id="timers-page-list"></div>
     <button id="page-add-timer" class="add-card" type="button">＋ Add timer</button>
   </section>
+  <section id="settings-page" hidden>
+    <div class="settings-list">
+      <a id="settings-timers-link" class="settings-link" href="#timers">
+        <span id="settings-timers-icon" class="settings-link-icon"></span>
+        <span class="settings-link-copy">
+          <span class="settings-link-title">Timers</span>
+          <span class="settings-link-description">Manage schedules and countdowns</span>
+        </span>
+        <span class="settings-link-chevron" aria-hidden="true">›</span>
+      </a>
+    </div>
+  </section>
   <section id="map-view" hidden>
     <div class="map-floor-bar">
       <select id="floor-select" aria-label="Select floor"></select>
@@ -65,9 +77,9 @@
     <button type="button" data-view="grid" aria-label="Grid view" aria-pressed="false"><span>Grid</span></button>
     <button type="button" data-view="map" aria-label="Map view" aria-pressed="false"><span>Map</span></button>
   </div>
-  <button id="open-timers" class="timers-button" type="button" aria-label="Timers">
-    <span id="timers-icon" class="icon-slot"></span>
-    <span>Timers</span>
+  <button id="open-settings" class="settings-button" type="button" aria-label="Settings" aria-pressed="false">
+    <span id="settings-icon" class="icon-slot"></span>
+    <span>Settings</span>
   </button>
 </footer>
 

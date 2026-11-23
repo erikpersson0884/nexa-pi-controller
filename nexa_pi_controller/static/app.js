@@ -22,6 +22,7 @@ let roomUnits = [];
 let mapGesture = null;
 let editorUnits = [];
 let timerSheetOpen = false;
+let settingsPage = location.hash === '#settings';
 let timersPage = location.hash === '#timers';
 let suppressTileClick = false;
 let allOffTimer = null;
@@ -37,6 +38,11 @@ const ICONS = {
   grid: [['rect', {x: 4, y: 4, width: 6, height: 6, rx: 1}], ['rect', {x: 14, y: 4, width: 6, height: 6, rx: 1}],
     ['rect', {x: 4, y: 14, width: 6, height: 6, rx: 1}], ['rect', {x: 14, y: 14, width: 6, height: 6, rx: 1}]],
   map: [['path', {d: 'M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z'}], ['path', {d: 'M9 4v14M15 6v14'}]],
+  settings: [['line', {x1: 4, y1: 21, x2: 4, y2: 14}], ['line', {x1: 4, y1: 10, x2: 4, y2: 3}],
+    ['line', {x1: 12, y1: 21, x2: 12, y2: 12}], ['line', {x1: 12, y1: 8, x2: 12, y2: 3}],
+    ['line', {x1: 20, y1: 21, x2: 20, y2: 16}], ['line', {x1: 20, y1: 12, x2: 20, y2: 3}],
+    ['line', {x1: 2, y1: 14, x2: 6, y2: 14}], ['line', {x1: 10, y1: 8, x2: 14, y2: 8}],
+    ['line', {x1: 18, y1: 16, x2: 22, y2: 16}]],
   check: [['polyline', {points: '20 6 9 17 4 12'}]],
 };
 
@@ -49,17 +55,21 @@ function readView() {
 
 function setView(view) {
   viewMode = ['grid', 'map'].includes(view) ? view : 'list';
-  if (timersPage) showTimersPage(false);
+  if (settingsPage || timersPage) showUtilityPage(null);
   try { localStorage.setItem('nexa-view', viewMode); } catch (_) {}
   if (viewMode !== 'map' && mapEditing) cancelMapEditing();
   renderDevices();
   if (viewMode === 'map') refreshMap().catch(error => showToast(error.message));
 }
 
-function showTimersPage(open) {
-  timersPage = open;
-  if (open && location.hash !== '#timers') location.hash = 'timers';
-  if (!open && location.hash) history.replaceState(null, '', location.pathname + location.search);
+function showUtilityPage(page) {
+  settingsPage = page === 'settings';
+  timersPage = page === 'timers';
+  const hash = page ? `#${page}` : '';
+  if (location.hash !== hash) {
+    if (hash) location.hash = hash;
+    else if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+  }
   renderDevices();
 }
 
@@ -667,26 +677,33 @@ function attachLongPress(node, onLongPress) {
 function renderDevices() {
   const list = document.getElementById('outlet-list');
   while (list.firstChild) list.removeChild(list.firstChild);
+  const utilityPage = settingsPage || timersPage;
   const grid = viewMode === 'grid' && !reorderMode;
-  const mapView = viewMode === 'map' && !reorderMode && !timersPage;
-  list.hidden = mapView || timersPage;
-  document.getElementById('map-view').hidden = !mapView || timersPage;
+  const mapView = viewMode === 'map' && !reorderMode && !utilityPage;
+  list.hidden = mapView || utilityPage;
+  document.getElementById('map-view').hidden = !mapView || utilityPage;
+  document.getElementById('settings-page').hidden = !settingsPage;
   document.getElementById('timers-page').hidden = !timersPage;
-  document.getElementById('open-timers').setAttribute('aria-pressed', String(timersPage));
+  document.getElementById('open-settings').setAttribute('aria-pressed', String(utilityPage));
   list.classList.toggle('grid', grid);
   document.body.classList.toggle('view-grid', grid);
   const onCount = devices.filter(d => d.state === true).length;
-  document.getElementById('page-title').textContent = reorderMode ? 'Reorder' : 'Nexa Control';
+  document.getElementById('page-title').textContent = reorderMode
+    ? 'Reorder' : settingsPage ? 'Settings' : 'Nexa Control';
   document.getElementById('summary').textContent = reorderMode
     ? 'Drag the handle or use the arrows'
+    : settingsPage ? 'Manage Nexa Control'
     : `${devices.length} outlet${devices.length === 1 ? '' : 's'} · ${onCount} on`;
-  document.getElementById('all-off').hidden = reorderMode;
+  document.getElementById('all-off').hidden = reorderMode || utilityPage;
   document.getElementById('reorder-done').hidden = !reorderMode;
   document.getElementById('view-bar').hidden = reorderMode;
   document.querySelectorAll('[data-view]').forEach(button => {
-    button.setAttribute('aria-pressed', String(!timersPage && button.dataset.view === viewMode));
+    button.setAttribute('aria-pressed', String(!utilityPage && button.dataset.view === viewMode));
   });
-  document.getElementById('add-outlet').hidden = reorderMode || grid || mapView;
+  document.getElementById('add-outlet').hidden = reorderMode || utilityPage || grid || mapView;
+  if (settingsPage) {
+    return;
+  }
   if (timersPage) {
     const count = timerData.schedules.length + timerData.countdowns.length;
     document.getElementById('page-title').textContent = 'Timers';
@@ -1260,9 +1277,14 @@ async function refresh() {
 
 document.getElementById('add-outlet').onclick = openPairModal;
 document.getElementById('all-off').onclick = allOff;
-document.getElementById('open-timers').onclick = () => showTimersPage(true);
+document.getElementById('open-settings').onclick = () => showUtilityPage('settings');
+document.getElementById('settings-timers-link').onclick = event => {
+  event.preventDefault();
+  showUtilityPage('timers');
+};
 document.getElementById('page-add-timer').onclick = () => openEditor('countdown');
 window.addEventListener('hashchange', () => {
+  settingsPage = location.hash === '#settings';
   timersPage = location.hash === '#timers';
   renderDevices();
 });
@@ -1288,7 +1310,8 @@ document.getElementById('delete-floor').onclick = deleteFloor;
 document.getElementById('floor-form').onsubmit = saveFloor;
 document.getElementById('room-form').onsubmit = saveRoom;
 document.getElementById('delete-room').onclick = deleteRoom;
-document.getElementById('timers-icon').append(icon('clock', 20));
+document.getElementById('settings-icon').append(icon('settings', 20));
+document.getElementById('settings-timers-icon').append(icon('clock', 20));
 document.getElementById('reorder-done').onclick = () => leaveReorderMode(true);
 document.getElementById('pair-form').onsubmit = pairOutlet;
 document.getElementById('rename-form').onsubmit = saveDeviceName;

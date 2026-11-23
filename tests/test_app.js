@@ -63,6 +63,11 @@ function submit(window, form) {
   form.dispatchEvent(new window.Event('submit', {bubbles: true, cancelable: true}));
 }
 
+function openTimersFromSettings(document) {
+  document.getElementById('open-settings').click();
+  document.getElementById('settings-timers-link').click();
+}
+
 function controlAllOffTimer(window) {
   const setTimeout = window.setTimeout.bind(window);
   const clearTimeout = window.clearTimeout.bind(window);
@@ -388,7 +393,26 @@ test('tile shows the next timer time and the bottom bar counts timers', async t 
   assert.equal(document.querySelector('[data-unit="3"] .tile-next'), null);
 });
 
-test('All timers sheet lists timers sorted with tags and adds with no preselection', async t => {
+test('settings links to the existing timers page', async t => {
+  const {document} = await setup(t, {devices: lamps});
+  document.getElementById('open-settings').click();
+  assert.equal(document.getElementById('settings-page').hidden, false);
+  assert.equal(document.getElementById('timers-page').hidden, true);
+  assert.equal(document.getElementById('page-title').textContent, 'Settings');
+  assert.equal(document.getElementById('all-off').hidden, true);
+  assert.equal(document.getElementById('settings-timers-link').getAttribute('href'), '#timers');
+
+  document.getElementById('settings-timers-link').click();
+  assert.equal(document.getElementById('settings-page').hidden, true);
+  assert.equal(document.getElementById('timers-page').hidden, false);
+  assert.equal(document.getElementById('page-title').textContent, 'Timers');
+
+  document.getElementById('open-settings').click();
+  assert.equal(document.getElementById('settings-page').hidden, false);
+  assert.equal(document.getElementById('timers-page').hidden, true);
+});
+
+test('All timers page lists timers sorted with tags and adds with no preselection', async t => {
   const {document} = await setup(t, {
     devices: lamps, view: 'grid',
     timers: {
@@ -399,7 +423,7 @@ test('All timers sheet lists timers sorted with tags and adds with no preselecti
       ],
     },
   });
-  document.getElementById('open-timers').click();
+  openTimersFromSettings(document);
   assert.equal(document.getElementById('timers-page').hidden, false);
   assert.equal(document.getElementById('timer-sheet').hidden, true);
   assert.equal(document.getElementById('page-title').textContent, 'Timers');
@@ -432,7 +456,7 @@ test('outlet-specific timer sheet filters timers and preselects the outlet', asy
 
 test('editor chooses outlets, select all toggles, and saves units', async t => {
   const {window, document, requests} = await setup(t, {devices: lamps, view: 'grid'});
-  document.getElementById('open-timers').click();
+  openTimersFromSettings(document);
   document.getElementById('page-add-timer').click();
   const chips = () => [...document.querySelectorAll('#timer-outlets .outlet-chip')];
   assert.equal(chips().length, 4);
@@ -462,7 +486,7 @@ test('editing a schedule prefills fields and saves with PUT', async t => {
       {id: 's1', units: [1, 2], action: 'off', time: '22:00', days: [5, 6], enabled: true},
     ]},
   });
-  document.getElementById('open-timers').click();
+  openTimersFromSettings(document);
   document.querySelector('#timers-page-list .timer-row').click();
   assert.equal(document.getElementById('editor-title').textContent, 'Edit timer');
   assert.equal(document.getElementById('timer-time').value, '22:00');
@@ -736,7 +760,7 @@ test('canceling room details discards unsaved name and outlet changes', async t 
 
 test('leaving the timers page by choosing a view shows outlets again', async t => {
   const {document} = await setup(t, {devices: lamps});
-  document.getElementById('open-timers').click();
+  openTimersFromSettings(document);
   assert.equal(document.getElementById('outlet-list').hidden, true);
   document.querySelector('[data-view="list"]').click();
   assert.equal(document.getElementById('timers-page').hidden, true);
