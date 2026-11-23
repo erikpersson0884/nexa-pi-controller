@@ -11,7 +11,11 @@ const script = new vm.Script(fs.readFileSync(scriptPath, 'utf8'), {filename: scr
 const template = fs.readFileSync(path.join(root, 'nexa_pi_controller/templates/index.html'), 'utf8')
   .replace('{{ csrf_token() }}', 'test-csrf');
 
-async function setup(t, {devices = [], timers = {schedules: [], countdowns: []}, fail, view, rooms = []} = {}) {
+async function setup(t, {
+  devices = [], timers = {schedules: [], countdowns: []}, fail, view, rooms = [],
+  floors = [{id: 'ground-floor', name: 'Ground floor'}],
+} = {}) {
+  devices = devices.map(device => ({...device}));
   const dom = new JSDOM(template, {
     url: 'http://localhost/',
     runScripts: 'outside-only',
@@ -19,6 +23,10 @@ async function setup(t, {devices = [], timers = {schedules: [], countdowns: []},
   });
   const {window} = dom;
   const requests = [];
+  let mapState = {
+    floors,
+    rooms: rooms.map(room => ({...room, floor_id: room.floor_id || 'ground-floor'})),
+  };
   t.after(() => window.close());
   window.setInterval = () => 0;
   window.fetch = async (url, options) => {
@@ -30,7 +38,15 @@ async function setup(t, {devices = [], timers = {schedules: [], countdowns: []},
     let response = {};
     if (url === '/api/devices' && options.method === 'GET') response = devices;
     if (url === '/api/timers' && options.method === 'GET') response = timers;
-    if (url === '/api/rooms' && options.method === 'GET') response = rooms;
+    if (url === '/api/map' && options.method === 'GET') response = mapState;
+    if (url === '/api/map' && options.method === 'PUT') {
+      mapState = body;
+    }
+    const deviceSwitch = url.match(/^\/api\/(\d+)\/(on|off)$/);
+    if (deviceSwitch && options.method === 'POST') {
+      const device = devices.find(item => item.unit === Number(deviceSwitch[1]));
+      if (device) device.state = deviceSwitch[2] === 'on';
+    }
     return {ok: true, json: async () => response};
   };
   window.confirm = () => true;
@@ -483,6 +499,84 @@ test('map view toggles all outlets in a room', async t => {
   assert.ok(requests.some(r => r.url === '/api/rooms/r1/off' && r.method === 'POST'));
 });
 
+test('long pressing a room opens individual outlet switches', async t => {
+  const {window, document, requests} = await setup(t, {
+    view: 'map',
+    devices: [{unit: 1, name: 'Lamp', state: false}, {unit: 2, name: 'Radio', state: true}],
+    rooms: [{id: 'r1', name: 'Living room', x: 0, y: 0, w: 40, h: 40, units: [1, 2]}],
+  });
+  const room = document.querySelector('.room');
+  room.dispatchEvent(new window.MouseEvent('pointerdown', {
+    bubbles: true, cancelable: true, clientX: 10, clientY: 10,
+  }));
+  await new Promise(resolve => setTimeout(resolve, 550));
+  assert.equal(document.getElementById('room-outlet-sheet').hidden, false);
+  window.dispatchEvent(new window.MouseEvent('pointerup'));
+  room.click();
+  await settle();
+  assert.equal(requests.some(request => request.url === '/api/rooms/r1/on'), false);
+
+  const switches = document.querySelectorAll('#room-outlet-controls [role="switch"]');
+  assert.equal(switches.length, 2);
+  assert.equal(switches[0].getAttribute('aria-checked'), 'false');
+  switches[0].click();
+  await settle();
+  assert.ok(requests.some(request => request.url === '/api/1/on' && request.method === 'POST'));
+  assert.equal(document.querySelector('#room-outlet-controls [role="switch"]')
+    .getAttribute('aria-checked'), 'true');
+});
+
+test('floors have separate rooms and can be added, renamed, and deleted', async t => {
+  const {window, document, requests} = await setup(t, {
+    view: 'map',
+    rooms: [{id: 'r1', name: 'Hall', x: 0, y: 0, w: 30, h: 30, units: []}],
+  });
+  const floorSelect = document.getElementById('floor-select');
+  assert.equal(floorSelect.disabled, false);
+  assert.equal(floorSelect.options[0].textContent, 'Ground floor');
+  assert.equal(document.querySelector('.room-name').textContent, 'Hall');
+
+  document.getElementById('floor-menu-toggle').click();
+  document.getElementById('add-floor').click();
+  document.getElementById('floor-name').value = 'Second floor';
+  submit(window, document.getElementById('floor-form'));
+  await settle();
+  const secondFloorId = floorSelect.value;
+  assert.equal(floorSelect.selectedOptions[0].textContent, 'Second floor');
+  document.getElementById('add-room').click();
+  document.querySelector('#room-form [data-close="room-modal"]').click();
+
+  document.getElementById('done-map-edit').click();
+  await settle();
+  let savedMap = requests.find(request => request.url === '/api/map' && request.method === 'PUT').body;
+  assert.deepEqual(savedMap.floors.map(floor => floor.name), ['Ground floor', 'Second floor']);
+  assert.deepEqual(savedMap.rooms.map(room => room.floor_id), ['ground-floor', secondFloorId]);
+
+  floorSelect.value = 'ground-floor';
+  floorSelect.dispatchEvent(new window.Event('change', {bubbles: true}));
+  assert.equal(document.querySelector('.room-name').textContent, 'Hall');
+  floorSelect.value = secondFloorId;
+  floorSelect.dispatchEvent(new window.Event('change', {bubbles: true}));
+  assert.equal(document.querySelector('.room-name').textContent, 'Room 1');
+
+  document.getElementById('floor-menu-toggle').click();
+  document.getElementById('rename-floor').click();
+  document.getElementById('floor-name').value = 'Top floor';
+  submit(window, document.getElementById('floor-form'));
+  document.getElementById('done-map-edit').click();
+  await settle();
+  savedMap = requests.filter(request => request.url === '/api/map' && request.method === 'PUT').at(-1).body;
+  assert.equal(savedMap.floors[1].name, 'Top floor');
+
+  document.getElementById('floor-menu-toggle').click();
+  document.getElementById('delete-floor').click();
+  document.getElementById('done-map-edit').click();
+  await settle();
+  savedMap = requests.filter(request => request.url === '/api/map' && request.method === 'PUT').at(-1).body;
+  assert.deepEqual(savedMap.floors.map(floor => floor.id), ['ground-floor']);
+  assert.deepEqual(savedMap.rooms.map(room => room.id), ['r1']);
+});
+
 test('new rooms are placed without overlapping existing rooms', async t => {
   const {document, requests} = await setup(t, {
     view: 'map',
@@ -492,11 +586,11 @@ test('new rooms are placed without overlapping existing rooms', async t => {
   await settle();
   document.getElementById('add-room').click();
   await settle();
-  assert.equal(requests.some(request => request.url === '/api/rooms' && request.method === 'PUT'), false);
+  assert.equal(requests.some(request => request.url === '/api/map' && request.method === 'PUT'), false);
   document.querySelector('#room-form [data-close="room-modal"]').click();
-  document.getElementById('edit-map').click();
+  document.getElementById('done-map-edit').click();
   await settle();
-  const savedRooms = requests.find(request => request.url === '/api/rooms' && request.method === 'PUT').body;
+  const savedRooms = requests.find(request => request.url === '/api/map' && request.method === 'PUT').body.rooms;
   assert.equal(savedRooms.length, 2);
   assert.deepEqual(
     {x: savedRooms[1].x, y: savedRooms[1].y, w: savedRooms[1].w, h: savedRooms[1].h},
@@ -531,7 +625,7 @@ test('rooms cannot be moved or resized into another room', async t => {
   window.dispatchEvent(new window.MouseEvent('pointerup'));
   await settle();
   assert.equal(room.style.width, '30%');
-  assert.equal(requests.some(request => request.url === '/api/rooms' && request.method === 'PUT'), false);
+  assert.equal(requests.some(request => request.url === '/api/map' && request.method === 'PUT'), false);
 });
 
 test('overlap toggle allows rooms to be moved over each other', async t => {
@@ -559,9 +653,9 @@ test('overlap toggle allows rooms to be moved over each other', async t => {
   await settle();
   assert.equal(room.style.left, '15%');
 
-  document.getElementById('edit-map').click();
+  document.getElementById('done-map-edit').click();
   await settle();
-  const savedRooms = requests.find(request => request.url === '/api/rooms' && request.method === 'PUT').body;
+  const savedRooms = requests.find(request => request.url === '/api/map' && request.method === 'PUT').body.rooms;
   assert.equal(savedRooms[0].x, 15);
 });
 
@@ -581,12 +675,36 @@ test('canceling map editing discards layout changes', async t => {
   window.dispatchEvent(new window.MouseEvent('pointerup'));
   await settle();
   assert.equal(room.style.left, '10%');
-  assert.equal(requests.some(request => request.url === '/api/rooms' && request.method === 'PUT'), false);
+  assert.equal(requests.some(request => request.url === '/api/map' && request.method === 'PUT'), false);
 
   document.getElementById('cancel-map-edit').click();
   assert.equal(document.querySelector('.room').style.left, '0%');
-  assert.equal(document.getElementById('edit-map').textContent, 'Edit layout');
-  assert.equal(requests.some(request => request.url === '/api/rooms' && request.method === 'PUT'), false);
+  assert.equal(document.getElementById('edit-map').textContent, 'Edit');
+  assert.equal(requests.some(request => request.url === '/api/map' && request.method === 'PUT'), false);
+});
+
+test('failed map saves keep editing open so changes can be canceled or retried', async t => {
+  const {document, requests} = await setup(t, {
+    view: 'map',
+    fail: (url, options) => url === '/api/map' && options.method === 'PUT',
+    rooms: [{id: 'r1', name: 'Hall', x: 0, y: 0, w: 30, h: 30, units: []}],
+  });
+  document.getElementById('edit-map').click();
+  document.querySelector('.map-layout').getBoundingClientRect = () => ({width: 100, height: 100});
+  document.querySelector('.room').dispatchEvent(new document.defaultView.MouseEvent('pointerdown', {
+    bubbles: true, cancelable: true, clientX: 0, clientY: 0,
+  }));
+  document.defaultView.dispatchEvent(new document.defaultView.MouseEvent('pointermove', {clientX: 10, clientY: 0}));
+  document.defaultView.dispatchEvent(new document.defaultView.MouseEvent('pointerup'));
+  document.getElementById('done-map-edit').click();
+  await settle();
+
+  assert.equal(document.getElementById('map-edit-toolbar').hidden, false);
+  assert.equal(document.getElementById('edit-map').hidden, true);
+  assert.match(document.getElementById('toast').textContent, /Failed: Request denied/);
+  assert.equal(requests.filter(request => request.url === '/api/map' && request.method === 'PUT').length, 1);
+  document.getElementById('cancel-map-edit').click();
+  assert.equal(document.querySelector('.room').style.left, '0%');
 });
 
 test('canceling room details discards unsaved name and outlet changes', async t => {
@@ -611,7 +729,7 @@ test('canceling room details discards unsaved name and outlet changes', async t 
   openRoom();
   assert.equal(document.getElementById('room-name').value, 'Hall');
   assert.equal(document.querySelector('#room-outlets .outlet-chip').getAttribute('aria-pressed'), 'false');
-  assert.equal(requests.some(request => request.url === '/api/rooms' && request.method === 'PUT'), false);
+  assert.equal(requests.some(request => request.url === '/api/map' && request.method === 'PUT'), false);
   document.querySelector('#room-form [data-close="room-modal"]').click();
   document.getElementById('cancel-map-edit').click();
 });

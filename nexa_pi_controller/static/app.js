@@ -9,11 +9,15 @@ let reorderMode = false;
 let reorderDevices = [];
 let dragged = null;
 let viewMode = readView();
+let floors = [];
+let currentFloorId = null;
 let rooms = [];
 let mapEditing = false;
 let mapEditingSnapshot = null;
 let allowRoomOverlap = false;
 let editingRoom = null;
+let editingFloorId = null;
+let quickRoom = null;
 let roomUnits = [];
 let mapGesture = null;
 let editorUnits = [];
@@ -49,7 +53,7 @@ function setView(view) {
   try { localStorage.setItem('nexa-view', viewMode); } catch (_) {}
   if (viewMode !== 'map' && mapEditing) cancelMapEditing();
   renderDevices();
-  if (viewMode === 'map') refreshRooms().catch(error => showToast(error.message));
+  if (viewMode === 'map') refreshMap().catch(error => showToast(error.message));
 }
 
 function showTimersPage(open) {
@@ -115,6 +119,8 @@ function closeOverlay(id) {
   if (id === 'timer-sheet') { timerUnit = null; timerSheetOpen = false; }
   if (id === 'editor-sheet') editing = null;
   if (id === 'room-modal') editingRoom = null;
+  if (id === 'floor-modal') editingFloorId = null;
+  if (id === 'room-outlet-sheet') quickRoom = null;
   if (id === 'rename-modal' || id === 'remove-modal') editingDevice = null;
 }
 
@@ -210,39 +216,113 @@ function roomOutletStats(room) {
   return {total: known.length, on: known.filter(d => d.state === true).length};
 }
 
+function attachRoomActions(node, room) {
+  let longPressTimer = null;
+  let longPressed = false;
+  const stopTimer = () => {
+    clearTimeout(longPressTimer);
+    longPressTimer = null;
+  };
+  node.addEventListener('pointerdown', event => {
+    if (event.button > 0) return;
+    longPressed = false;
+    stopTimer();
+    longPressTimer = setTimeout(() => {
+      longPressTimer = null;
+      longPressed = true;
+      openRoomOutletSheet(room);
+    }, LONG_PRESS_MS);
+  });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(type =>
+    node.addEventListener(type, stopTimer));
+  node.addEventListener('contextmenu', event => event.preventDefault());
+  node.addEventListener('click', event => {
+    if (longPressed) {
+      event.preventDefault();
+      longPressed = false;
+      return;
+    }
+    toggleRoom(room);
+  });
+}
+
+function renderRoomOutletControls() {
+  const box = document.getElementById('room-outlet-controls');
+  while (box.firstChild) box.removeChild(box.firstChild);
+  const room = rooms.find(item => item.id === quickRoom?.id) || quickRoom;
+  if (!room) return;
+  document.getElementById('room-outlet-title').textContent = room.name;
+  const roomDevices = devices.filter(device => room.units.includes(device.unit));
+  if (!roomDevices.length) {
+    box.append(el('p', 'muted', 'No outlets assigned to this room.'));
+    return;
+  }
+  roomDevices.forEach(device => {
+    const row = el('div', 'room-outlet-row');
+    row.append(el('span', 'room-outlet-name', device.name));
+    const control = el('button', 'switch');
+    control.type = 'button';
+    control.setAttribute('role', 'switch');
+    control.setAttribute('aria-checked', String(device.state === true));
+    control.setAttribute('aria-label', `${device.state ? 'Turn off' : 'Turn on'} ${device.name}`);
+    control.onclick = () => send(device.unit, device.state ? 'off' : 'on');
+    row.append(control);
+    box.append(row);
+  });
+}
+
+function openRoomOutletSheet(room) {
+  quickRoom = room;
+  renderRoomOutletControls();
+  document.getElementById('room-outlet-sheet').hidden = false;
+}
+
+function renderFloorSelector() {
+  const select = document.getElementById('floor-select');
+  while (select.firstChild) select.removeChild(select.firstChild);
+  floors.forEach(floor => {
+    const option = el('option', '', floor.name);
+    option.value = floor.id;
+    select.append(option);
+  });
+  select.value = currentFloorId || floors[0]?.id || '';
+}
+
 function renderMap() {
   if (mapGesture) return;
+  renderFloorSelector();
   const map = document.getElementById('map');
   while (map.firstChild) map.removeChild(map.firstChild);
   map.classList.toggle('editing', mapEditing);
-  document.querySelector('.map-toolbar').classList.toggle('editing', mapEditing);
-  document.getElementById('edit-map').textContent = mapEditing ? 'Done' : 'Edit layout';
-  document.getElementById('map-edit-tools').hidden = !mapEditing;
-  document.getElementById('cancel-map-edit').hidden = !mapEditing;
+  document.getElementById('edit-map').hidden = mapEditing;
+  document.getElementById('map-edit-toolbar').hidden = !mapEditing;
+  document.getElementById('map-hint').hidden = !mapEditing;
   const overlapToggle = document.getElementById('toggle-room-overlap');
   overlapToggle.textContent = `Overlap: ${allowRoomOverlap ? 'On' : 'Off'}`;
   overlapToggle.setAttribute('aria-pressed', String(allowRoomOverlap));
-  document.getElementById('map-hint').textContent = mapEditing
-    ? 'Drag rooms to move, use the corner to resize, tap to edit.'
-    : 'Tap a room to switch its outlets.';
-  if (!rooms.length) {
+  document.getElementById('floor-menu').hidden = true;
+  document.getElementById('floor-menu-toggle').setAttribute('aria-expanded', 'false');
+  document.getElementById('map-hint').textContent =
+    'Drag to move · Corner handle to resize · Tap room to edit';
+  const floorRooms = rooms.filter(room => room.floor_id === currentFloorId);
+  if (!floorRooms.length) {
     map.append(el('div', 'map-empty', mapEditing
       ? 'Add a room to start drawing your apartment.'
-      : 'No rooms yet. Press Edit layout to draw your apartment.'));
+    : 'No rooms yet. Press Edit to draw your apartment.'));
     return;
   }
   const layout = el('div', 'map-layout');
   map.append(layout);
-  rooms.forEach(room => {
+  floorRooms.forEach(room => {
     const {total, on} = roomOutletStats(room);
-    const node = el('button', `room${on > 0 && !mapEditing ? ' on' : ''}`);
+    const node = el('button', `room${on > 0 ? ' on' : ''}`);
     node.type = 'button';
     node.dataset.room = room.id;
     Object.assign(node.style, {
       left: `${room.x}%`, top: `${room.y}%`, width: `${room.w}%`, height: `${room.h}%`,
     });
     node.append(el('span', 'room-name', room.name),
-      el('span', 'room-status', total ? `${on}/${total} on` : 'No outlets'));
+      el('span', 'room-status', total ? `${on}/${total} on` : '0 outlets'));
     if (mapEditing) {
       node.setAttribute('aria-label', `Edit ${room.name}`);
       node.addEventListener('pointerdown', event => startRoomGesture(event, room, 'move'));
@@ -251,9 +331,9 @@ function renderMap() {
       handle.addEventListener('pointerdown', event => startRoomGesture(event, room, 'resize'));
       node.append(handle);
     } else {
-      node.setAttribute('aria-label', `Toggle ${room.name}`);
+      node.setAttribute('aria-label', `Toggle ${room.name}; hold to control outlets individually`);
       node.setAttribute('aria-pressed', String(on > 0));
-      node.onclick = () => toggleRoom(room);
+      attachRoomActions(node, room);
     }
     layout.append(node);
   });
@@ -268,17 +348,18 @@ function clampRoom(room) {
 
 function overlapsRoom(room, ignoredId = room.id) {
   return !allowRoomOverlap && rooms.some(other => other.id !== ignoredId
+    && other.floor_id === room.floor_id
     && room.x < other.x + other.w && room.x + room.w > other.x
     && room.y < other.y + other.h && room.y + room.h > other.y);
 }
 
 function findRoomPosition() {
   for (let size = 30; size >= MIN_ROOM_SIZE; size -= 5) {
-    const preferred = {x: 10, y: 10, w: size, h: size};
+    const preferred = {floor_id: currentFloorId, x: 10, y: 10, w: size, h: size};
     if (!overlapsRoom(preferred)) return preferred;
     for (let y = 0; y <= MAP_SIZE - size; y += 5) {
       for (let x = 0; x <= MAP_SIZE - size; x += 5) {
-        const candidate = {x, y, w: size, h: size};
+        const candidate = {floor_id: currentFloorId, x, y, w: size, h: size};
         if (!overlapsRoom(candidate)) return candidate;
       }
     }
@@ -293,7 +374,8 @@ function startRoomGesture(event, room, type) {
   mapGesture = {
     room, type, moved: false, startX: event.clientX, startY: event.clientY,
     origin: {x: room.x, y: room.y, w: room.w, h: room.h},
-    scale: MAP_SIZE / (bounds.width || 1),
+    scaleX: MAP_SIZE / (bounds.width || 1),
+    scaleY: MAP_SIZE / (bounds.height || 1),
     node: event.currentTarget.closest('.room'),
   };
   window.addEventListener('pointermove', moveRoomGesture);
@@ -311,11 +393,11 @@ function moveRoomGesture(event) {
   const room = g.room;
   const candidate = {...room};
   if (g.type === 'move') {
-    candidate.x = Math.round(g.origin.x + dx * g.scale);
-    candidate.y = Math.round(g.origin.y + dy * g.scale);
+    candidate.x = Math.round(g.origin.x + dx * g.scaleX);
+    candidate.y = Math.round(g.origin.y + dy * g.scaleY);
   } else {
-    candidate.w = Math.round(g.origin.w + dx * g.scale);
-    candidate.h = Math.round(g.origin.h + dy * g.scale);
+    candidate.w = Math.round(g.origin.w + dx * g.scaleX);
+    candidate.h = Math.round(g.origin.h + dy * g.scaleY);
   }
   clampRoom(candidate);
   if (overlapsRoom(candidate)) return;
@@ -342,19 +424,18 @@ async function endRoomGesture(event) {
   }
 }
 
-async function saveRooms() {
-  try {
-    await api('PUT', '/api/rooms', rooms);
-  } catch (error) {
-    showToast(`Failed: ${error.message}`);
-    await refreshRooms(true).catch(() => {});
-  }
+async function saveMap() {
+  await api('PUT', '/api/map', {floors, rooms});
 }
 
-async function refreshRooms(force = false) {
+async function refreshMap(force = false) {
   if (mapEditing && !force) return;
-  const data = await api('GET', '/api/rooms');
-  rooms = Array.isArray(data) ? data : [];
+  const data = await api('GET', '/api/map');
+  floors = Array.isArray(data.floors) && data.floors.length
+    ? data.floors
+    : [{id: 'ground-floor', name: 'Ground floor'}];
+  rooms = Array.isArray(data.rooms) ? data.rooms : [];
+  if (!floors.some(floor => floor.id === currentFloorId)) currentFloorId = floors[0].id;
   if (viewMode === 'map') renderMap();
 }
 
@@ -378,20 +459,40 @@ async function sendRoom(room, action) {
 
 async function toggleMapEditing() {
   if (mapEditing) {
-    await saveRooms();
+    try {
+      await saveMap();
+    } catch (error) {
+      showToast(`Failed: ${error.message}`);
+      return;
+    }
     mapEditing = false;
     mapEditingSnapshot = null;
-    await refreshRooms(true).catch(error => showToast(error.message));
+    await refreshMap(true).catch(error => showToast(error.message));
+    renderMap();
   } else {
-    mapEditingSnapshot = rooms.map(room => ({...room, units: [...room.units]}));
-    mapEditing = true;
+    startMapEditing();
   }
+}
+
+function startMapEditing() {
+  if (mapEditing) return;
+  closeFloorMenu();
+  mapEditingSnapshot = {
+    floors: floors.map(floor => ({...floor})),
+    rooms: rooms.map(room => ({...room, units: [...room.units]})),
+    floorId: currentFloorId,
+  };
+  mapEditing = true;
   renderMap();
 }
 
 function cancelMapEditing() {
   if (!mapEditing) return;
-  rooms = mapEditingSnapshot || rooms;
+  if (mapEditingSnapshot) {
+    floors = mapEditingSnapshot.floors;
+    rooms = mapEditingSnapshot.rooms;
+    currentFloorId = mapEditingSnapshot.floorId;
+  }
   mapEditingSnapshot = null;
   mapEditing = false;
   renderMap();
@@ -404,19 +505,91 @@ function toggleRoomOverlap() {
   button.setAttribute('aria-pressed', String(allowRoomOverlap));
 }
 
+function closeFloorMenu() {
+  document.getElementById('floor-menu').hidden = true;
+  document.getElementById('floor-menu-toggle').setAttribute('aria-expanded', 'false');
+}
+
+function toggleFloorMenu() {
+  const menu = document.getElementById('floor-menu');
+  const open = menu.hidden;
+  menu.hidden = !open;
+  document.getElementById('floor-menu-toggle').setAttribute('aria-expanded', String(open));
+}
+
 async function addRoom() {
   const position = findRoomPosition();
   if (!position) {
     showToast('No room space available');
     return;
   }
+  const floorRoomCount = rooms.filter(room => room.floor_id === currentFloorId).length;
   const room = {
-    id: (crypto.randomUUID ? crypto.randomUUID() : `r${Date.now()}${Math.random().toString(16).slice(2)}`),
-    name: `Room ${rooms.length + 1}`, ...position, units: [],
+    id: createId('r'), name: `Room ${floorRoomCount + 1}`, ...position, units: [],
   };
   rooms.push(room);
   renderMap();
   openRoomModal(room);
+}
+
+function createId(prefix) {
+  return crypto.randomUUID ? crypto.randomUUID() : `${prefix}${Date.now()}${Math.random().toString(16).slice(2)}`;
+}
+
+function openFloorEditor(floor = null) {
+  editingFloorId = floor?.id || null;
+  document.getElementById('floor-modal-title').textContent = floor ? 'Rename floor' : 'Add floor';
+  document.getElementById('floor-name').value = floor?.name || `Floor ${floors.length + 1}`;
+  document.getElementById('floor-modal').hidden = false;
+  document.getElementById('floor-name').focus();
+  document.getElementById('floor-name').select();
+}
+
+function addFloor() {
+  closeFloorMenu();
+  startMapEditing();
+  openFloorEditor();
+}
+
+function renameFloor() {
+  const floor = floors.find(item => item.id === currentFloorId);
+  if (!floor) return;
+  closeFloorMenu();
+  startMapEditing();
+  openFloorEditor(floor);
+}
+
+function saveFloor(event) {
+  event.preventDefault();
+  const name = document.getElementById('floor-name').value.trim();
+  if (!name) return;
+  if (editingFloorId) {
+    const floor = floors.find(item => item.id === editingFloorId);
+    if (!floor) return;
+    floor.name = name;
+  } else {
+    const floor = {id: createId('f'), name};
+    floors.push(floor);
+    currentFloorId = floor.id;
+  }
+  closeOverlay('floor-modal');
+  renderMap();
+}
+
+function deleteFloor() {
+  const floor = floors.find(item => item.id === currentFloorId);
+  if (!floor) return;
+  if (floors.length < 2) {
+    showToast('At least one floor is required');
+    return;
+  }
+  if (!window.confirm(`Delete ${floor.name} and all its rooms?`)) return;
+  closeFloorMenu();
+  startMapEditing();
+  floors = floors.filter(item => item.id !== floor.id);
+  rooms = rooms.filter(room => room.floor_id !== floor.id);
+  currentFloorId = floors[0].id;
+  renderMap();
 }
 
 function openRoomModal(room) {
@@ -495,7 +668,7 @@ function renderDevices() {
   const list = document.getElementById('outlet-list');
   while (list.firstChild) list.removeChild(list.firstChild);
   const grid = viewMode === 'grid' && !reorderMode;
-  const mapView = viewMode === 'map' && !reorderMode;
+  const mapView = viewMode === 'map' && !reorderMode && !timersPage;
   list.hidden = mapView || timersPage;
   document.getElementById('map-view').hidden = !mapView || timersPage;
   document.getElementById('timers-page').hidden = !timersPage;
@@ -1076,9 +1249,13 @@ async function refresh() {
   if (reorderMode) return;
   devices = await api('GET', '/api/devices');
   timerData = await api('GET', '/api/timers');
-  if (viewMode === 'map') await refreshRooms();
+  if (viewMode === 'map') await refreshMap();
   renderDevices();
   if (!document.getElementById('timer-sheet').hidden) renderTimerSheet();
+  if (quickRoom && !document.getElementById('room-outlet-sheet').hidden) {
+    quickRoom = rooms.find(room => room.id === quickRoom.id) || quickRoom;
+    renderRoomOutletControls();
+  }
 }
 
 document.getElementById('add-outlet').onclick = openPairModal;
@@ -1097,8 +1274,18 @@ document.querySelector('[data-view="grid"]').append(icon('grid', 22));
 document.querySelector('[data-view="map"]').append(icon('map', 22));
 document.getElementById('edit-map').onclick = toggleMapEditing;
 document.getElementById('cancel-map-edit').onclick = cancelMapEditing;
+document.getElementById('done-map-edit').onclick = toggleMapEditing;
 document.getElementById('toggle-room-overlap').onclick = toggleRoomOverlap;
 document.getElementById('add-room').onclick = addRoom;
+document.getElementById('floor-menu-toggle').onclick = toggleFloorMenu;
+document.getElementById('floor-select').onchange = event => {
+  currentFloorId = event.target.value;
+  renderMap();
+};
+document.getElementById('add-floor').onclick = addFloor;
+document.getElementById('rename-floor').onclick = renameFloor;
+document.getElementById('delete-floor').onclick = deleteFloor;
+document.getElementById('floor-form').onsubmit = saveFloor;
 document.getElementById('room-form').onsubmit = saveRoom;
 document.getElementById('delete-room').onclick = deleteRoom;
 document.getElementById('timers-icon').append(icon('clock', 20));
@@ -1128,6 +1315,7 @@ document.addEventListener('keydown', event => {
   }
   if (event.key === 'Escape') {
     document.querySelectorAll('.menu').forEach(menu => menu.remove());
+    closeFloorMenu();
   }
   if (event.key === 'Escape') document.querySelectorAll('.overlay:not([hidden])').forEach(sheet => closeOverlay(sheet.id));
 });
@@ -1135,6 +1323,7 @@ document.addEventListener('click', event => {
   if (!event.target.closest('.menu') && !event.target.closest('.menu-button')) {
     document.querySelectorAll('.menu').forEach(menu => menu.remove());
   }
+  if (!event.target.closest('.floor-menu-wrap')) closeFloorMenu();
 });
 document.querySelectorAll('.overlay').forEach(overlay => {
   overlay.onclick = event => { if (event.target === overlay) closeOverlay(overlay.id); };
@@ -1149,7 +1338,7 @@ document.querySelectorAll('.sheet').forEach(sheet => {
 
 buildDays();
 renderDevices();
-if (viewMode === 'map') refreshRooms().catch(error => showToast(error.message));
+if (viewMode === 'map') refreshMap().catch(error => showToast(error.message));
 refresh().catch(error => showToast(error.message));
 setInterval(refreshTimers, 15000);
 setInterval(refresh, 15000);

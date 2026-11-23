@@ -16,6 +16,7 @@ class StorageTestCase(unittest.TestCase):
             patch.object(storage, "DEVICES_FILE", str(self.data / "devices.json")),
             patch.object(storage, "STATE_FILE", str(self.data / "state.json")),
             patch.object(storage, "TIMER_FILE", str(self.data / "timers.json")),
+            patch.object(storage, "ROOMS_FILE", str(self.data / "rooms.json")),
         )
         for item in patches:
             item.start()
@@ -25,6 +26,7 @@ class StorageTestCase(unittest.TestCase):
         self.assertEqual(storage.load_devices(), [])
         self.assertEqual(storage.load_state(), {})
         self.assertEqual(storage.load_timers(), {"schedules": [], "countdowns": []})
+        self.assertEqual(storage.load_map(), ([storage.DEFAULT_FLOOR], []))
 
     def test_round_trip_all_data_and_create_directory(self):
         devices = [{"unit": 2, "name": "Lamp"}]
@@ -36,6 +38,20 @@ class StorageTestCase(unittest.TestCase):
         self.assertEqual(storage.load_devices(), devices)
         self.assertEqual(storage.load_state(), state)
         self.assertEqual(storage.load_timers(), timers)
+
+    def test_map_round_trip_and_legacy_room_migration(self):
+        self.data.mkdir()
+        legacy_room = {"id": "r1", "name": "Hall", "x": 0, "y": 0, "w": 30, "h": 30, "units": []}
+        Path(storage.ROOMS_FILE).write_text(json.dumps([legacy_room]))
+        self.assertEqual(
+            storage.load_map(),
+            ([storage.DEFAULT_FLOOR], [{**legacy_room, "floor_id": "ground-floor"}]),
+        )
+
+        floors = [storage.DEFAULT_FLOOR, {"id": "upper", "name": "Upper floor"}]
+        rooms = [{**legacy_room, "floor_id": "upper"}]
+        storage.save_map(floors, rooms)
+        self.assertEqual(storage.load_map(), (floors, rooms))
 
     def test_devices_filter_invalid_units_and_blank_names(self):
         self.data.mkdir()

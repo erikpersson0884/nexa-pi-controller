@@ -79,7 +79,7 @@ save_devices = storage.save_devices
 configured_devices = storage.load_devices()
 state = storage.load_state()
 timers = storage.load_timers()
-configured_rooms = storage.load_rooms()
+configured_floors, configured_rooms = storage.load_map()
 state_lock = threading.Lock()
 last_fired = {}   # schedule id -> "YYYY-MM-DD HH:MM" (prevents double firing)
 last_sent = {}
@@ -396,7 +396,7 @@ def rename_device(unit):
                 timer["units"] = [new_unit if u == unit else u for u in timer["units"]]
         for room in configured_rooms:
             room["units"] = [new_unit if u == unit else u for u in room["units"]]
-        storage.save_rooms(configured_rooms)
+        storage.save_map(configured_floors, configured_rooms)
     save_devices(configured_devices)
     save_state(state)
     save_timers()
@@ -411,7 +411,7 @@ def remove_device(unit):
     state.pop(unit, None)
     for room in configured_rooms:
         room["units"] = [u for u in room["units"] if u != unit]
-    storage.save_rooms(configured_rooms)
+    storage.save_map(configured_floors, configured_rooms)
     save_devices(configured_devices)
     save_state(state)
     with timer_lock:
@@ -493,10 +493,14 @@ def all_on():
 ROOM_GRID = 100   # rooms live on a ROOM_GRID x ROOM_GRID coordinate plane
 
 
-def parse_rooms(data):
+def parse_rooms(data, floor_ids=None, default_floor_id=None):
     """Validate a list of rooms; return (rooms, error_message)."""
     if not isinstance(data, list):
         return None, "rooms must be a list"
+    if floor_ids is None:
+        floor_ids = {floor["id"] for floor in configured_floors}
+    if default_floor_id is None:
+        default_floor_id = configured_floors[0]["id"] if configured_floors else "ground-floor"
     rooms = []
     ids = set()
     for item in data:
@@ -508,6 +512,9 @@ def parse_rooms(data):
             return None, "each room needs a unique id"
         if not isinstance(name, str) or not name.strip():
             return None, "room name is required"
+        floor_id = item.get("floor_id", default_floor_id)
+        if not isinstance(floor_id, str) or floor_id not in floor_ids:
+            return None, "room needs a valid floor"
         geometry = []
         for key in ("x", "y", "w", "h"):
             value = item.get(key)
@@ -524,9 +531,51 @@ def parse_rooms(data):
         if not all(valid_unit(u) for u in units):
             return None, "Unknown outlet"
         ids.add(room_id)
-        rooms.append({"id": room_id, "name": name.strip()[:80], "x": x, "y": y,
+        rooms.append({"id": room_id, "floor_id": floor_id, "name": name.strip()[:80], "x": x, "y": y,
                       "w": w, "h": h, "units": list(dict.fromkeys(units))})
     return rooms, None
+
+
+def parse_map(data):
+    """Validate all floor metadata and rooms; return (floors, rooms, error_message)."""
+    if not isinstance(data, dict):
+        return None, None, "map must be an object"
+    floor_data = data.get("floors")
+    if not isinstance(floor_data, list) or not floor_data:
+        return None, None, "at least one floor is required"
+    floors = []
+    floor_ids = set()
+    for item in floor_data:
+        if not isinstance(item, dict):
+            return None, None, "invalid floor"
+        floor_id = item.get("id")
+        name = item.get("name")
+        if not isinstance(floor_id, str) or not floor_id.strip() or floor_id in floor_ids:
+            return None, None, "each floor needs a unique id"
+        if not isinstance(name, str) or not name.strip():
+            return None, None, "floor name is required"
+        floors.append({"id": floor_id, "name": name.strip()[:80]})
+        floor_ids.add(floor_id)
+    rooms, error = parse_rooms(data.get("rooms"), floor_ids, floors[0]["id"])
+    if error:
+        return None, None, error
+    return floors, rooms, None
+
+
+@app.get("/api/map")
+def get_map():
+    return jsonify(floors=configured_floors, rooms=configured_rooms)
+
+
+@app.put("/api/map")
+def update_map():
+    floors, rooms, error = parse_map(request.get_json(silent=True))
+    if error:
+        return jsonify(error=error), 400
+    configured_floors[:] = floors
+    configured_rooms[:] = rooms
+    storage.save_map(configured_floors, configured_rooms)
+    return jsonify(ok=True)
 
 
 @app.get("/api/rooms")
@@ -540,7 +589,7 @@ def update_rooms():
     if error:
         return jsonify(error=error), 400
     configured_rooms[:] = rooms
-    storage.save_rooms(configured_rooms)
+    storage.save_map(configured_floors, configured_rooms)
     return jsonify(ok=True)
 
 

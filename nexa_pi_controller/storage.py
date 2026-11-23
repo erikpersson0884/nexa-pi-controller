@@ -5,6 +5,8 @@ import os
 
 from .config import DEVICES_FILE, ROOMS_FILE, STATE_FILE, TIMER_FILE
 
+DEFAULT_FLOOR = {"id": "ground-floor", "name": "Ground floor"}
+
 
 def _ensure_data_dir():
     os.makedirs(os.path.dirname(DEVICES_FILE), exist_ok=True)
@@ -90,21 +92,45 @@ def save_timers(timers):
         pass
 
 
-def load_rooms():
+def load_map():
     try:
         with open(ROOMS_FILE) as f:
-            rooms = json.load(f)
-        if not isinstance(rooms, list):
-            raise ValueError("room configuration must be a list")
-        return rooms
+            data = json.load(f)
+        if isinstance(data, list):
+            floors = [dict(DEFAULT_FLOOR)]
+            rooms = data
+        elif isinstance(data, dict):
+            floors = data.get("floors")
+            rooms = data.get("rooms")
+            if not isinstance(floors, list) or not isinstance(rooms, list):
+                raise ValueError("map configuration must contain floor and room lists")
+            if not floors:
+                floors = [dict(DEFAULT_FLOOR)]
+        else:
+            raise ValueError("map configuration must be a list or object")
+        floor_ids = {floor.get("id") for floor in floors if isinstance(floor, dict)}
+        default_floor_id = floors[0].get("id") if floors and isinstance(floors[0], dict) else None
+        for room in rooms:
+            if isinstance(room, dict) and room.get("floor_id") not in floor_ids:
+                room["floor_id"] = default_floor_id
+        return floors, rooms
     except FileNotFoundError:
-        return []
+        return [dict(DEFAULT_FLOOR)], []
     except Exception as e:
-        print("Could not read rooms file, using no rooms:", e, flush=True)
-        return []
+        print("Could not read map file, using a default floor:", e, flush=True)
+        return [dict(DEFAULT_FLOOR)], []
+
+
+def save_map(floors, rooms):
+    _ensure_data_dir()
+    with open(ROOMS_FILE, "w") as f:
+        json.dump({"floors": floors, "rooms": rooms}, f, indent=2)
+
+
+def load_rooms():
+    return load_map()[1]
 
 
 def save_rooms(rooms):
-    _ensure_data_dir()
-    with open(ROOMS_FILE, "w") as f:
-        json.dump(rooms, f, indent=2)
+    floors, _ = load_map()
+    save_map(floors, rooms)

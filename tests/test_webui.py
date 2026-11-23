@@ -451,7 +451,7 @@ class WebUiTestCase(unittest.TestCase):
         old = webui.configured_rooms
         webui.configured_rooms = []
         try:
-            with patch.object(webui.storage, "save_rooms") as save:
+            with patch.object(webui.storage, "save_map") as save:
                 self.assertEqual(self.client.put("/api/rooms", json=[room]).status_code, 200)
             save.assert_called_once()
             self.assertEqual(self.client.get("/api/rooms").get_json()[0]["units"], [0, 1])
@@ -466,12 +466,46 @@ class WebUiTestCase(unittest.TestCase):
                 self.assertEqual(self.client.post("/api/rooms/nope/on").status_code, 404)
             apply.assert_has_calls([call(0, True), call(1, True)])
 
-            with patch.object(webui.storage, "save_rooms"), \
+            with patch.object(webui.storage, "save_map"), \
                     patch.object(webui, "save_devices"), patch.object(webui, "save_state"):
                 self.client.delete("/api/devices/1")
             self.assertEqual(webui.configured_rooms[0]["units"], [0])
         finally:
             webui.configured_rooms = old
+
+    def test_map_api_saves_multiple_floors_and_rejects_invalid_floor_references(self):
+        old_floors = webui.configured_floors
+        old_rooms = webui.configured_rooms
+        webui.configured_floors = [{"id": "ground-floor", "name": "Ground floor"}]
+        webui.configured_rooms = []
+        floors = [
+            {"id": "ground-floor", "name": "Ground floor"},
+            {"id": "upper", "name": "Upper floor"},
+        ]
+        rooms = [
+            {"id": "r1", "floor_id": "ground-floor", "name": "Hall",
+             "x": 0, "y": 0, "w": 30, "h": 30, "units": []},
+            {"id": "r2", "floor_id": "upper", "name": "Bedroom",
+             "x": 0, "y": 0, "w": 30, "h": 30, "units": []},
+        ]
+        try:
+            with patch.object(webui.storage, "save_map") as save:
+                response = self.client.put("/api/map", json={"floors": floors, "rooms": rooms})
+            self.assertEqual(response.status_code, 200)
+            save.assert_called_once_with(floors, rooms)
+            self.assertEqual(self.client.get("/api/map").get_json(),
+                             {"floors": floors, "rooms": rooms})
+
+            invalid_maps = [
+                {"floors": [], "rooms": []},
+                {"floors": floors, "rooms": [{**rooms[0], "floor_id": "missing"}]},
+                {"floors": [floors[0], floors[0]], "rooms": []},
+            ]
+            for invalid_map in invalid_maps:
+                self.assertEqual(self.client.put("/api/map", json=invalid_map).status_code, 400)
+        finally:
+            webui.configured_floors = old_floors
+            webui.configured_rooms = old_rooms
 
 
 if __name__ == "__main__":

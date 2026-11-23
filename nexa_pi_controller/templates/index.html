@@ -31,18 +31,28 @@
     <button id="page-add-timer" class="add-card" type="button">＋ Add timer</button>
   </section>
   <section id="map-view" hidden>
-    <div class="map-toolbar">
-      <p id="map-hint" class="hint">Tap a room to switch its outlets.</p>
-      <div id="map-edit-tools" class="map-edit-tools" hidden>
-        <button id="add-room" class="secondary" type="button">＋ Add room</button>
-        <button id="toggle-room-overlap" class="secondary" type="button" aria-label="Allow room overlap"
-                title="Toggle whether rooms can overlap" aria-pressed="false">Overlap: Off</button>
+    <div class="map-floor-bar">
+      <select id="floor-select" aria-label="Select floor"></select>
+      <div class="floor-menu-wrap">
+        <button id="floor-menu-toggle" class="icon-button secondary" type="button"
+                aria-label="Floor options" aria-haspopup="menu" aria-expanded="false">⋮</button>
+        <div id="floor-menu" class="floor-menu" role="menu" hidden>
+          <button id="add-floor" type="button" role="menuitem">＋ Add floor</button>
+          <button id="rename-floor" type="button" role="menuitem">Rename floor</button>
+          <button id="delete-floor" class="danger" type="button" role="menuitem">Delete floor</button>
+        </div>
       </div>
-      <div class="map-edit-actions">
-        <button id="cancel-map-edit" class="secondary" type="button" hidden>Cancel</button>
-        <button id="edit-map" class="secondary" type="button">Edit layout</button>
-      </div>
+      <button id="edit-map" class="secondary" type="button">Edit</button>
     </div>
+    <div id="map-edit-toolbar" class="map-edit-toolbar" hidden>
+      <button id="add-room" class="secondary" type="button">＋ Room</button>
+      <button id="toggle-room-overlap" class="secondary" type="button" aria-label="Allow room overlap"
+              title="Toggle whether rooms can overlap" aria-pressed="false">Overlap: Off</button>
+      <span class="map-edit-spacer"></span>
+      <button id="cancel-map-edit" class="secondary" type="button">Cancel</button>
+      <button id="done-map-edit" class="primary" type="button">Done</button>
+    </div>
+    <p id="map-hint" class="map-caption" hidden>Drag to move · Corner handle to resize · Tap room to edit</p>
     <div id="map" class="map"></div>
   </section>
   <button id="add-outlet" class="add-card" type="button">＋ Add outlet</button>
@@ -109,6 +119,29 @@
       <button class="primary full" type="submit">Save</button>
     </div>
   </form>
+</div>
+
+<div id="floor-modal" class="overlay" hidden>
+  <form id="floor-form" class="dialog">
+    <button class="close-button" type="button" data-close="floor-modal" aria-label="Close">×</button>
+    <h2 id="floor-modal-title">Add floor</h2>
+    <label for="floor-name">Floor name</label>
+    <input id="floor-name" type="text" maxlength="80" required>
+    <div class="dialog-actions">
+      <button class="secondary" type="button" data-close="floor-modal">Cancel</button>
+      <button class="primary" type="submit">Save</button>
+    </div>
+  </form>
+</div>
+
+<div id="room-outlet-sheet" class="overlay sheet-overlay" hidden>
+  <section class="sheet" aria-labelledby="room-outlet-title">
+    <div class="sheet-handle"></div>
+    <button class="close-button" type="button" data-close="room-outlet-sheet" aria-label="Close">×</button>
+    <h2 id="room-outlet-title">Room outlets</h2>
+    <p class="muted">Switch outlets in this room individually.</p>
+    <div id="room-outlet-controls" class="room-outlet-controls"></div>
+  </section>
 </div>
 
 <div id="remove-modal" class="overlay" hidden>

@@ -44,7 +44,7 @@ This repository contains **only the controller app**. It requires a 433 MHz ASK/
 - Pair new outlets from the web page ("Add outlet")
 - Choose an outlet number when pairing and change it later from the outlet edit menu
 - "All off" button (double-press within 400 ms to turn all outlets on instead)
-- Map view: draw your apartment as rooms ("Edit layout"), assign outlets to each room, then tap a room to switch all its outlets
+- Map view: draw rooms on multiple floors, assign outlets to each room, then tap a room to switch its outlets. Existing maps become the Ground floor
 - Countdown timers ("turn off in 30 minutes")
 - Weekly schedules (time + days), which can be disabled or deleted
 - Timers, outlets and last-known states are saved to disk and survive restarts
