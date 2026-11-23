@@ -117,6 +117,29 @@ python3 -m nexa_pi_controller
 
 The app runs on `http://127.0.0.1:8080` by default. To access it from another device on the network, set `HOST=0.0.0.0` in `.env`, then open `http://<pi-ip>:8080` (or `http://raspberrypi.local:8080`). Set `GPIO_CHIP` in `.env` if `gpiodetect` shows a different number than 15.
 
+## Development with example data
+
+After installing the Python dependencies and configuring `SECRET_KEY`,
+`AUTH_USERNAME`, and `AUTH_PASSWORD` in `.env`, start the development instance:
+
+```sh
+python3 -m nexa_pi_controller.dev
+```
+
+This uses mock GPIO and stores its data and separate account database in
+`.dev-data/`, regardless of `DATA_DIR`. On the first run it creates example
+outlets, states, schedules, a one-hour countdown, floors, and rooms. Subsequent
+runs keep your changes; if any controller data file already exists, seeding is
+skipped. The countdown expires normally and the enabled schedule runs with mock
+radio commands. The first administrator is bootstrapped from the configured
+credentials as usual.
+
+To seed again, stop the development instance and remove only
+`.dev-data/nexa_devices.json`, `.dev-data/nexa_state.json`,
+`.dev-data/nexa_timers.json`, and `.dev-data/nexa_rooms.json`, then restart it.
+This keeps the development accounts intact. Never point a production instance
+at `.dev-data/`.
+
 ## Pairing outlets
 
 1. Open the web page and press **Add outlet**.

@@ -46,6 +46,7 @@ coverage/
 .env.*
 !.env.example
 data/
+.dev-data/
 
 # Docker
 .docker/
