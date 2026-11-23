@@ -153,16 +153,16 @@ def verify_password(user, password):
         return False
 
 
-def create_user(database_path, username, password, role):
+def create_user(database_path, username, password, role, *, must_change_password=True):
     try:
         with _connect(database_path) as connection:
             cursor = connection.execute(
                 """
                 INSERT INTO users (
                     username, password_hash, role, must_change_password
-                ) VALUES (?, ?, ?, 1)
+                ) VALUES (?, ?, ?, ?)
                 """,
-                (username, generate_password_hash(password), role),
+                (username, generate_password_hash(password), role, int(must_change_password)),
             )
             user_id = cursor.lastrowid
     except sqlite3.IntegrityError as error:

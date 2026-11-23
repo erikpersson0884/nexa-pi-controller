@@ -1,13 +1,15 @@
 import json
+import io
 import os
 import subprocess
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
-from nexa_pi_controller import dev
+from nexa_pi_controller import dev, user_store
 
 
 class DevelopmentSeedTestCase(unittest.TestCase):
@@ -53,6 +55,46 @@ class DevelopmentSeedTestCase(unittest.TestCase):
         self.assertEqual(state_path.read_text(), '{"0": true}')
         self.assertFalse((self.data / "nexa_devices.json").exists())
 
+    def test_seed_users_preserves_existing_accounts_and_runs_once(self):
+        database = self.data / "nexa_users.sqlite3"
+        user_store.initialize(database, "admin", "initial-password")
+        existing = user_store.create_user(database, "demo-admin-1", "existing-password", "operator")
+        output = io.StringIO()
+        with patch.object(dev.secrets, "token_urlsafe", side_effect=["temp-1", "temp-2", "temp-3"]):
+            with redirect_stdout(output):
+                self.assertTrue(dev.seed_users(self.data, "admin", "initial-password"))
+
+        preserved = user_store.get_user_by_username(database, "demo-admin-1")
+        self.assertEqual(preserved["id"], existing["id"])
+        self.assertEqual(preserved["role"], "operator")
+        self.assertTrue(user_store.verify_password(preserved, "existing-password"))
+        for username, role, password, must_change in [
+            ("demo-admin-2", "admin", "temp-1", False),
+            ("demo-operator-1", "operator", "temp-2", True),
+            ("demo-operator-2", "operator", "temp-3", False),
+        ]:
+            user = user_store.get_user_by_username(database, username)
+            self.assertEqual(user["role"], role)
+            self.assertEqual(user["must_change_password"], must_change)
+            self.assertTrue(user_store.verify_password(user, password))
+            password_type = "temporary password" if must_change else "password"
+            self.assertIn(f"{username} ({role}) {password_type}: {password}", output.getvalue())
+
+        user_store.set_password(database, preserved["id"], "changed-password")
+        with patch.object(dev.secrets, "token_urlsafe") as generate:
+            self.assertFalse(dev.seed_users(self.data, "admin", "initial-password"))
+            generate.assert_not_called()
+        self.assertTrue(user_store.verify_password(
+            user_store.get_user_by_username(database, "demo-admin-1"), "changed-password"
+        ))
+
+    def test_seed_users_can_retry_missing_bootstrap_credentials(self):
+        with self.assertRaises(user_store.BootstrapRequiredError):
+            dev.seed_users(self.data, "admin", None)
+        self.assertFalse((self.data / ".users-seeded").exists())
+        with redirect_stdout(io.StringIO()):
+            self.assertTrue(dev.seed_users(self.data, "admin", "initial-password"))
+
     def test_launcher_uses_seeded_isolated_data_and_mock_radio(self):
         script = """
 import sys
@@ -63,9 +105,10 @@ from nexa_pi_controller import dev
 dev.DEV_DATA_DIR = Path(sys.argv[1])
 
 def verify_app(app, host, port):
-    from nexa_pi_controller import config, webui
+    from nexa_pi_controller import config, user_store, webui
     assert config.DATA_DIR == str(dev.DEV_DATA_DIR)
     assert config.GPIO_MODE == "mock"
+    app.config["WTF_CSRF_ENABLED"] = False
     client = app.test_client()
     headers = {"Authorization": "Bearer test-api-key"}
     devices = client.get("/api/devices", headers=headers)
@@ -79,8 +122,24 @@ def verify_app(app, host, port):
     assert len(layout.json["floors"]) == 2
     assert len(layout.json["rooms"]) == 3
     assert webui.parse_map(layout.json)[2] is None
+    users = user_store.list_users(config.USERS_FILE)
+    assert len(users) == 5
+    for username, role, password, must_change in [
+        ("demo-admin-1", "admin", "temp-1", True),
+        ("demo-admin-2", "admin", "temp-2", False),
+        ("demo-operator-1", "operator", "temp-3", True),
+        ("demo-operator-2", "operator", "temp-4", False),
+    ]:
+        user = user_store.get_user_by_username(config.USERS_FILE, username)
+        assert user["role"] == role
+        assert user["must_change_password"] is must_change
+        response = app.test_client().post("/login", data={"username": username, "password": password})
+        expected = "/account/password" if must_change else "/"
+        assert response.status_code == 302 and response.location == expected
 
-with patch("flask.Flask.run", verify_app):
+with patch("flask.Flask.run", verify_app), patch.object(
+    dev.secrets, "token_urlsafe", side_effect=["temp-1", "temp-2", "temp-3", "temp-4"]
+):
     dev.main()
 """
         environment = os.environ.copy()

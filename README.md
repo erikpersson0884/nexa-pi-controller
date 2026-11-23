@@ -134,6 +134,18 @@ skipped. The countdown expires normally and the enabled schedule runs with mock
 radio commands. The first administrator is bootstrapped from the configured
 credentials as usual.
 
+On the first development startup, four additional accounts are created:
+`demo-admin-1`, `demo-admin-2`, `demo-operator-1`, and `demo-operator-2`.
+Each receives a randomly generated password printed once in the startup
+terminal. `demo-admin-1` and `demo-operator-1` must change their temporary
+passwords at first login; `demo-admin-2` and `demo-operator-2` can sign in
+without changing theirs. Keep the terminal output private. Existing accounts
+with those names are not changed, and sample accounts are not recreated on
+later starts, so the password-change setting applies only when an account is
+first seeded. The configured bootstrap administrator can reset their passwords
+if needed. These accounts are only for development; keep the development
+server private.
+
 To seed again, stop the development instance and remove only
 `.dev-data/nexa_devices.json`, `.dev-data/nexa_state.json`,
 `.dev-data/nexa_timers.json`, and `.dev-data/nexa_rooms.json`, then restart it.

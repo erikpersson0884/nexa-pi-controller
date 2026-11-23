@@ -2,6 +2,7 @@
 
 import json
 import os
+import secrets
 import time
 from pathlib import Path
 
@@ -61,6 +62,37 @@ def seed_data(data_dir):
     return True
 
 
+def seed_users(data_dir, bootstrap_username, bootstrap_password):
+    from . import user_store
+
+    data_dir = Path(data_dir)
+    marker = data_dir / ".users-seeded"
+    if marker.exists():
+        return False
+
+    users_file = data_dir / "nexa_users.sqlite3"
+    user_store.initialize(users_file, bootstrap_username, bootstrap_password)
+    sample_users = (
+        ("demo-admin-1", "admin", True),
+        ("demo-admin-2", "admin", False),
+        ("demo-operator-1", "operator", True),
+        ("demo-operator-2", "operator", False),
+    )
+    for username, role, must_change_password in sample_users:
+        if user_store.get_user_by_username(users_file, username):
+            print(f"Existing development user {username} was not changed.", flush=True)
+            continue
+        password = secrets.token_urlsafe(18)
+        user_store.create_user(
+            users_file, username, password, role, must_change_password=must_change_password
+        )
+        password_type = "temporary password" if must_change_password else "password"
+        print(f"Development user {username} ({role}) {password_type}: {password}", flush=True)
+    with marker.open("x", encoding="utf-8") as file:
+        file.write("Development users seeded.\n")
+    return True
+
+
 def main():
     os.environ["DATA_DIR"] = str(DEV_DATA_DIR)
     os.environ["GPIO_MODE"] = "mock"
@@ -69,7 +101,13 @@ def main():
     else:
         print(f"Using existing development data in {DEV_DATA_DIR}; seeding skipped", flush=True)
 
-    from .webui import HOST, PORT, app, start_background_services
+    from . import user_store
+    from .webui import AUTH_PASSWORD, AUTH_USERNAME, HOST, PORT, app, start_background_services
+
+    try:
+        seed_users(DEV_DATA_DIR, AUTH_USERNAME, AUTH_PASSWORD)
+    except user_store.BootstrapRequiredError as error:
+        print(f"Development users not seeded: {error}", flush=True)
 
     start_background_services()
     app.run(host=HOST, port=PORT)
