@@ -263,6 +263,8 @@ button.settings-link .settings-link-chevron { display:inline-flex; }
 .menu button.danger { color:var(--danger); background:transparent; }
 
 .topbar-actions { display:flex; align-items:center; gap:10px; }
+#all-off:not([hidden]) { display:inline-flex; align-items:center; gap:6px; }
+#all-off .material-symbols-outlined { font-size:20px; }
 .view-switch { display:flex; gap:2px; padding:2px; border-radius:14px; background:var(--card); }
 .view-switch button { width:44px; height:44px; min-height:44px; padding:0; border-radius:12px;
                       display:inline-flex; align-items:center; justify-content:center;

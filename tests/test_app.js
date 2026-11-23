@@ -115,6 +115,9 @@ for (const [view, buttonId] of [['list', 'all-off'], ['grid', 'all-off']]) {
     const timer = controlAllOffTimer(window);
     const button = document.getElementById(buttonId);
     const commands = () => requests.filter(item => item.url.startsWith('/api/all/'));
+    const powerIcon = button.querySelector('.material-symbols-outlined');
+    assert.equal(powerIcon.textContent, 'power_settings_new');
+    assert.equal(powerIcon.getAttribute('aria-hidden'), 'true');
 
     button.click();
     assert.equal(commands().length, 0);
