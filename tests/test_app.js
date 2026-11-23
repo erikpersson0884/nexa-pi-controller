@@ -407,7 +407,8 @@ test('settings links to the existing timers page', async t => {
   assert.equal(document.getElementById('timers-page').hidden, false);
   assert.equal(document.getElementById('page-title').textContent, 'Timers');
 
-  document.getElementById('open-settings').click();
+  assert.equal(document.getElementById('timers-settings-back').getAttribute('href'), '#settings');
+  document.getElementById('timers-settings-back').click();
   assert.equal(document.getElementById('settings-page').hidden, false);
   assert.equal(document.getElementById('timers-page').hidden, true);
 });

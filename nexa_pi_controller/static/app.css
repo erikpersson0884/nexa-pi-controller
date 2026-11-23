@@ -158,8 +158,8 @@ input:focus, select:focus { outline:2px solid color-mix(in srgb, var(--primary) 
 .password-actions > button, .password-actions > .action-button { flex:1; min-height:44px; margin:0; }
 .password-actions .primary { margin-top:0; }
 .password-actions form[hidden] { display:none; }
-.account-main { max-width:620px; }
-.account-heading { margin-bottom:16px; }
+.account-main { max-width:520px; }
+.password-main { max-width:520px; margin:0 auto; }
 .account-section-heading { display:flex; align-items:center; justify-content:space-between;
                            gap:12px; margin:20px 0 10px; }
 .account-section-heading h2 { margin:0; }

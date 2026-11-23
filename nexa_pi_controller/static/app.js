@@ -1496,6 +1496,10 @@ document.getElementById('settings-timers-link').onclick = event => {
   event.preventDefault();
   showUtilityPage('timers');
 };
+document.getElementById('timers-settings-back').onclick = event => {
+  event.preventDefault();
+  showUtilityPage('settings');
+};
 document.getElementById('settings-appearance-link').onclick = event => {
   event.preventDefault();
   showUtilityPage('appearance');

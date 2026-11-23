@@ -8,11 +8,13 @@
 </head>
 <body>
 <main class="account-main">
-    <a class="settings-back-link" href="{{ url_for('index') }}">‹ Nexa Control</a>
-    <header class="account-heading">
-        <h1>User management</h1>
-        <p class="muted">Signed in as {{ current_user.username }}</p>
+    <header class="topbar">
+        <div class="topbar-title">
+            <h1>User management</h1>
+            <p class="summary">Signed in as {{ current_user.username }}</p>
+        </div>
     </header>
+    <a class="settings-back-link" href="{{ url_for('index') }}#settings">‹ Settings</a>
     {% with messages = get_flashed_messages() %}
         {% if messages %}
         <div class="account-messages" role="status">

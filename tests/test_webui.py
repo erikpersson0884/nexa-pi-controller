@@ -161,7 +161,11 @@ class WebUiTestCase(unittest.TestCase):
 
     def test_password_change_has_a_cancel_action(self):
         response = self.client.get("/account/password")
-        self.assertIn('href="/#settings"', response.get_data(as_text=True))
+        html = response.get_data(as_text=True)
+        self.assertIn('href="/#settings"', html)
+        self.assertIn('href="/#settings">‹ Settings</a>', html)
+        self.assertIn('<header class="topbar">', html)
+        self.assertIn("<h1>Change password</h1>", html)
 
         with self.client.session_transaction() as session:
             session.clear()
@@ -172,10 +176,9 @@ class WebUiTestCase(unittest.TestCase):
             session["user_id"] = temporary["id"]
             session["session_version"] = temporary["session_version"]
         response = self.client.get("/account/password")
-        self.assertIn(
-            'form="cancel-form">Cancel and sign out</button>',
-            response.get_data(as_text=True),
-        )
+        html = response.get_data(as_text=True)
+        self.assertIn("<h1>Set your password</h1>", html)
+        self.assertIn('form="cancel-form">Cancel and sign out</button>', html)
 
         cancelled = self.client.post("/logout")
         self.assertEqual(cancelled.status_code, 302)
@@ -215,6 +218,9 @@ class WebUiTestCase(unittest.TestCase):
     def test_account_creation_is_opened_from_a_button(self):
         response = self.client.get("/admin/users")
         html = response.get_data(as_text=True)
+        self.assertIn('<header class="topbar">', html)
+        self.assertIn("<h1>User management</h1>", html)
+        self.assertIn('href="/#settings">‹ Settings</a>', html)
         self.assertIn('id="open-create-account"', html)
         self.assertIn('<dialog id="create-account-dialog"', html)
         self.assertIn('src="/static/users.js"', html)
