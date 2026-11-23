@@ -401,6 +401,10 @@ test('settings links to the existing timers page', async t => {
   assert.equal(document.getElementById('page-title').textContent, 'Settings');
   assert.equal(document.getElementById('all-off').hidden, true);
   assert.equal(document.getElementById('settings-timers-link').getAttribute('href'), '#timers');
+  assert.deepEqual(
+    [...document.querySelectorAll('.settings-group-title')].map(title => title.textContent),
+    ['Personalization', 'Automation', 'Account & access'],
+  );
 
   document.getElementById('settings-timers-link').click();
   assert.equal(document.getElementById('settings-page').hidden, true);
