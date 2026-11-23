@@ -164,8 +164,12 @@ class WebUiTestCase(unittest.TestCase):
     def test_password_change_has_a_cancel_action(self):
         response = self.client.get("/account/password")
         html = response.get_data(as_text=True)
-        self.assertIn('href="/#settings"', html)
-        self.assertIn('href="/#settings">‹ Settings</a>', html)
+        self.assertRegex(
+            html,
+            r'<a class="settings-back-link" href="/#settings">\s*'
+            r'<span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>'
+            r'\s*Settings\s*</a>',
+        )
         self.assertIn('<header class="topbar">', html)
         self.assertIn("<h1>Change password</h1>", html)
 
@@ -223,7 +227,12 @@ class WebUiTestCase(unittest.TestCase):
         self.assertIn('<header class="topbar">', html)
         self.assertIn("<h1>User management</h1>", html)
         self.assertIn("1 account (1 active) · Signed in as admin", html)
-        self.assertIn('href="/#settings">‹ Settings</a>', html)
+        self.assertRegex(
+            html,
+            r'<a class="settings-back-link" href="/#settings">\s*'
+            r'<span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>'
+            r'\s*Settings\s*</a>',
+        )
         self.assertIn('id="open-create-account"', html)
         self.assertIn('<dialog id="create-account-dialog"', html)
         self.assertIn('src="/static/users.js"', html)

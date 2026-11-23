@@ -153,6 +153,7 @@ with patch("flask.Flask.run", verify_app), patch.object(
         })
         result = subprocess.run(
             [sys.executable, "-c", script, str(self.data)],
+            cwd=Path(__file__).resolve().parent.parent,
             env=environment, capture_output=True, text=True, timeout=30,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
