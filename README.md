@@ -1,12 +1,33 @@
-# Nexa Controller Pi
+<h1 align="center">Nexa Controller Pi</h1>
 
-A small self-hosted web UI for controlling Nexa self-learning 433 MHz outlets from a Raspberry Pi 5, with countdowns and weekly schedules.
+<p align="center">
+  A self-hosted controller for Nexa 433 MHz outlets, with rooms, countdowns, and weekly schedules.
+</p>
+
+<p align="center">
+  <a href="#features">Features</a> ·
+  <a href="#screenshots">Screenshots</a> ·
+  <a href="#getting-started">Getting started</a> ·
+  <a href="#deployment">Docker</a> ·
+  <a href="#api-key-access">API</a> ·
+  <a href="#testing">Testing</a>
+</p>
+
+<div align="center">
 
 [![Last Commit][last-commit-shield]][last-commit-url]
 [![Repo Size][repo-size-shield]][repo-size-url]
 [![Build Status][build-shield]][build-url]
 [![Test Coverage][coverage-shield]][coverage-url]
 [![Author][author-shield]][author-url]
+
+![Python][tech-1-shield]
+![Flask][tech-2-shield]
+![Docker][tech-3-shield]
+![Raspberry Pi][tech-4-shield]
+
+</div>
+
 
 # Index
 
@@ -33,10 +54,7 @@ This repository contains **only the controller app**. It requires a 433 MHz ASK/
 
 ## Built with
 
-![Python][tech-1-shield]
-![Flask][tech-2-shield]
-![Docker][tech-3-shield]
-![Raspberry Pi][tech-4-shield]
+Built with Python, Flask, Docker, and Raspberry Pi.
 
 ## Features
 
