@@ -222,6 +222,7 @@ class WebUiTestCase(unittest.TestCase):
         html = response.get_data(as_text=True)
         self.assertIn('<header class="topbar">', html)
         self.assertIn("<h1>User management</h1>", html)
+        self.assertIn("1 account (1 active) · Signed in as admin", html)
         self.assertIn('href="/#settings">‹ Settings</a>', html)
         self.assertIn('id="open-create-account"', html)
         self.assertIn('<dialog id="create-account-dialog"', html)
@@ -230,6 +231,59 @@ class WebUiTestCase(unittest.TestCase):
         with self.client.get("/static/users.js") as script:
             self.assertEqual(script.status_code, 200)
             self.assertIn(b"createAccountDialog.showModal()", script.data)
+
+    def test_user_cards_keep_self_controls_out_and_other_actions_in_the_menu(self):
+        response = self.client.get("/admin/users")
+        html = response.get_data(as_text=True)
+        current_card = html.split(
+            '<article class="account-panel user-panel user-current-card">', 1
+        )[1].split("</article>", 1)[0]
+        self.assertIn('<span class="user-role-badge">Admin</span>', current_card)
+        self.assertIn('href="/account/password">Change password', current_card)
+        self.assertNotIn("Save role", current_card)
+        self.assertNotIn("Deactivate", current_card)
+        self.assertNotIn("disabled", current_card)
+
+        webui.user_store.create_user(
+            webui.USERS_FILE, "operator", "temporary-passphrase", "operator"
+        )
+        response = self.client.get("/admin/users")
+        html = response.get_data(as_text=True)
+        self.assertIn("2 accounts (2 active) · Signed in as admin", html)
+        self.assertIn('aria-label="More actions for operator"', html)
+        self.assertIn("Password change required", html)
+        self.assertIn("Deactivate account", html)
+        self.assertIn('class="user-role-select"', html)
+        self.assertIn('id="reset-password-dialog-2"', html)
+
+    def test_account_cards_put_current_user_first_then_inactive_users_last(self):
+        webui.user_store.create_user(
+            webui.USERS_FILE, "active-zulu", "temporary-passphrase", "operator"
+        )
+        webui.user_store.create_user(
+            webui.USERS_FILE, "inactive-user", "temporary-passphrase", "operator"
+        )
+        webui.user_store.create_user(
+            webui.USERS_FILE, "active-alpha", "temporary-passphrase", "operator"
+        )
+        inactive = webui.user_store.get_user_by_username(
+            webui.USERS_FILE, "inactive-user"
+        )
+        webui.user_store.update_user(
+            webui.USERS_FILE, inactive["id"], is_active=False
+        )
+
+        response = self.client.get("/admin/users")
+        rendered_order = re.findall(
+            r'<article class="account-panel user-panel(?: user-current-card)?">.*?<h3>([^<]+)</h3>',
+            response.get_data(as_text=True),
+            re.DOTALL,
+        )
+
+        self.assertEqual(
+            rendered_order,
+            ["admin", "active-alpha", "active-zulu", "inactive-user"],
+        )
 
     def test_invalid_account_creation_reopens_the_dialog(self):
         response = self.client.post("/admin/users", data={

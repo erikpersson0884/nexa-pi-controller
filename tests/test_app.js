@@ -833,3 +833,46 @@ test('leaving the timers page by choosing a view shows outlets again', async t =
   assert.equal(document.getElementById('outlet-list').hidden, false);
   assert.equal(document.getElementById('page-title').textContent, 'Nexa Control');
 });
+
+test('user account menu opens reset dialog and submits role changes immediately', t => {
+  const dom = new JSDOM(`
+    <article class="user-panel">
+      <div class="user-card-menu">
+        <button id="menu-toggle" class="user-menu-toggle" aria-controls="user-menu"
+                aria-expanded="false"></button>
+        <div id="user-menu" hidden>
+          <button id="reset-trigger" class="user-reset-trigger" data-dialog="reset-dialog"></button>
+        </div>
+      </div>
+    </article>
+    <dialog id="reset-dialog"></dialog>
+    <form id="role-form"><select class="user-role-select"></select></form>
+  `, {runScripts: 'outside-only'});
+  const {window} = dom;
+  const {document} = window;
+  t.after(() => window.close());
+
+  const roleForm = document.getElementById('role-form');
+  let roleSubmitCount = 0;
+  roleForm.requestSubmit = () => { roleSubmitCount += 1; };
+  const resetDialog = document.getElementById('reset-dialog');
+  resetDialog.showModal = () => { resetDialog.open = true; };
+
+  const usersScriptPath = path.join(root, 'nexa_pi_controller/static/users.js');
+  new vm.Script(fs.readFileSync(usersScriptPath, 'utf8'), {filename: usersScriptPath})
+    .runInContext(dom.getInternalVMContext());
+
+  const toggle = document.getElementById('menu-toggle');
+  const menu = document.getElementById('user-menu');
+  toggle.click();
+  assert.equal(menu.hidden, false);
+  assert.equal(toggle.getAttribute('aria-expanded'), 'true');
+
+  document.getElementById('reset-trigger').click();
+  assert.equal(menu.hidden, true);
+  assert.equal(resetDialog.open, true);
+
+  document.querySelector('.user-role-select')
+    .dispatchEvent(new window.Event('change', {bubbles: true}));
+  assert.equal(roleSubmitCount, 1);
+});

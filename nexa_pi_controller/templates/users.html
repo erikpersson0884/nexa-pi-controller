@@ -11,7 +11,7 @@
     <header class="topbar">
         <div class="topbar-title">
             <h1>User management</h1>
-            <p class="summary">Signed in as {{ current_user.username }}</p>
+            <p class="summary">{{ account_count }} account{% if account_count != 1 %}s{% endif %} ({{ active_account_count }} active) · Signed in as {{ current_user.username }}</p>
         </div>
     </header>
     <a class="settings-back-link" href="{{ url_for('index') }}#settings">‹ Settings</a>
@@ -54,41 +54,85 @@
             </div>
         </dialog>
         {% for user in users %}
-        <article class="account-panel user-panel">
-            <div class="user-heading">
-                <div>
+        {% if user.id == current_user.id %}
+        <article class="account-panel user-panel user-current-card">
+            <div class="user-card-top">
+                <div class="user-current-identity">
                     <h3>{{ user.username }}</h3>
-                    <p class="muted">{{ "Active" if user.is_active else "Inactive" }}{% if user.must_change_password %} · Password change required{% endif %}</p>
+                    <span class="user-you">You</span>
                 </div>
-                {% if user.id == current_user.id %}<span class="user-you">You</span>{% endif %}
+                <span class="user-role-badge">Admin</span>
             </div>
-            <form class="account-form-row" method="post" action="{{ url_for('change_account_role', user_id=user.id) }}">
+            <div class="user-status-line">
+                <span class="user-status-dot active" aria-hidden="true"></span>
+                <span>Active</span>
+            </div>
+            <div class="user-card-footer">
+                <a href="{{ url_for('change_password') }}">Change password <span aria-hidden="true">→</span></a>
+            </div>
+        </article>
+        {% else %}
+        <article class="account-panel user-panel">
+            <div class="user-card-top">
+                <div class="user-card-information">
+                    <h3>{{ user.username }}</h3>
+                    <div class="user-status-line">
+                        <span class="user-status-dot {{ 'active' if user.is_active else 'inactive' }}" aria-hidden="true"></span>
+                        <span>{{ "Active" if user.is_active else "Inactive" }}</span>
+                        {% if user.must_change_password %}
+                        <span class="user-password-required">Password change required</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="user-card-menu">
+                    <button class="user-menu-toggle" type="button" aria-label="More actions for {{ user.username }}"
+                            aria-expanded="false" aria-controls="user-menu-{{ user.id }}">⋮</button>
+                    <div id="user-menu-{{ user.id }}" class="user-overflow-menu" hidden>
+                        <button class="user-menu-action user-reset-trigger" type="button"
+                                data-dialog="reset-password-dialog-{{ user.id }}">Reset password</button>
+                        <button class="user-menu-action {{ 'danger' if user.is_active else '' }}" type="submit"
+                                form="user-status-form-{{ user.id }}">
+                            {{ "Deactivate account" if user.is_active else "Activate account" }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <form class="user-role-form" method="post" action="{{ url_for('change_account_role', user_id=user.id) }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <label class="sr-only" for="role-{{ user.id }}">Role for {{ user.username }}</label>
-                <select id="role-{{ user.id }}" name="role" {% if user.id == current_user.id %}disabled{% endif %}>
+                <select id="role-{{ user.id }}" class="user-role-select" name="role">
                     <option value="operator" {% if user.role == "operator" %}selected{% endif %}>Operator</option>
                     <option value="admin" {% if user.role == "admin" %}selected{% endif %}>Admin</option>
                 </select>
-                <button class="secondary" type="submit" {% if user.id == current_user.id %}disabled{% endif %}>Save role</button>
             </form>
-            <form class="account-form-row" method="post" action="{{ url_for('change_account_status', user_id=user.id) }}">
+            <form id="user-status-form-{{ user.id }}" method="post"
+                  action="{{ url_for('change_account_status', user_id=user.id) }}" hidden>
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="active" value="{{ 'false' if user.is_active else 'true' }}">
-                <button class="secondary" type="submit" {% if user.id == current_user.id %}disabled{% endif %}>
-                    {{ "Deactivate" if user.is_active else "Activate" }}
-                </button>
-            </form>
-            <form class="account-password-form" method="post" action="{{ url_for('reset_account_password', user_id=user.id) }}">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                {% if user.id == current_user.id %}
-                <p class="muted">Use Change password in Settings to update your own password.</p>
-                {% else %}
-                <label for="reset-password-{{ user.id }}">New temporary password</label>
-                <input id="reset-password-{{ user.id }}" name="temporary_password" type="password" minlength="6" autocomplete="new-password" required>
-                <button class="secondary" type="submit">Reset password</button>
-                {% endif %}
             </form>
         </article>
+        <dialog id="reset-password-dialog-{{ user.id }}" class="dialog account-create-dialog user-reset-dialog"
+                aria-labelledby="reset-password-title-{{ user.id }}">
+            <form method="dialog">
+                <button class="close-button" type="submit" aria-label="Close dialog">×</button>
+            </form>
+            <h2 id="reset-password-title-{{ user.id }}">Reset password</h2>
+            <p class="muted">Set a temporary password for {{ user.username }}. They must change it at sign-in.</p>
+            <form id="reset-password-form-{{ user.id }}" method="post"
+                  action="{{ url_for('reset_account_password', user_id=user.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <label for="reset-password-{{ user.id }}">New temporary password</label>
+                <input id="reset-password-{{ user.id }}" name="temporary_password" type="password"
+                       minlength="6" autocomplete="new-password" required>
+            </form>
+            <div class="account-create-actions">
+                <form method="dialog">
+                    <button class="secondary" type="submit">Cancel</button>
+                </form>
+                <button class="primary" type="submit" form="reset-password-form-{{ user.id }}">Reset password</button>
+            </div>
+        </dialog>
+        {% endif %}
         {% else %}
         <p class="empty">No accounts found.</p>
         {% endfor %}

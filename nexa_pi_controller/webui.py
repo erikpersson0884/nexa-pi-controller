@@ -393,9 +393,16 @@ def change_password():
 @app.get("/admin/users")
 @admin_required
 def admin_users():
+    users = user_store.list_users(USERS_FILE)
+    users.sort(key=lambda user: (
+        user["id"] != g.current_user["id"],
+        not user["is_active"],
+    ))
     return render_template(
         "users.html",
-        users=user_store.list_users(USERS_FILE),
+        users=users,
+        account_count=len(users),
+        active_account_count=sum(user["is_active"] for user in users),
         current_user=g.current_user,
     )
 
