@@ -59,6 +59,10 @@ This repository contains **only the controller app**. It requires a 433 MHz ASK/
 |---|---|
 | ![Dashboard](docs/images/dashboard.png) | ![Timers](docs/images/timers.png) |
 
+| Map | Settings |
+|---|---|
+| ![Map](docs/images/map.png) | ![Settings](docs/images/settings.png) |
+
 # Getting started
 
 ## Prerequisites
