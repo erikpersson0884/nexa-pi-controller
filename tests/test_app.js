@@ -418,6 +418,7 @@ test('appearance settings apply and save preset and custom palettes', async t =>
   document.getElementById('settings-appearance-link').click();
   assert.equal(document.getElementById('appearance-page').hidden, false);
   assert.equal(document.getElementById('settings-page').hidden, true);
+  assert.equal(document.getElementById('save-custom-theme-panel').hidden, true);
 
   const theme = document.getElementById('appearance-theme');
   theme.value = 'sage';
@@ -433,6 +434,10 @@ test('appearance settings apply and save preset and custom palettes', async t =>
 
   theme.value = 'custom';
   theme.dispatchEvent(new document.defaultView.Event('change', {bubbles: true}));
+  const saveThemePanel = document.getElementById('save-custom-theme-panel');
+  assert.equal(saveThemePanel.hidden, false);
+  assert.equal(saveThemePanel.parentElement.id, 'appearance-page');
+  assert.notEqual(saveThemePanel.parentElement, document.getElementById('custom-palette'));
   const background = document.getElementById('appearance-background');
   background.value = '#123456';
   background.dispatchEvent(new document.defaultView.Event('input', {bubbles: true}));
@@ -447,8 +452,21 @@ test('appearance settings apply and save preset and custom palettes', async t =>
   assert.equal(saved.custom.background, '#123456');
   assert.equal(saved.custom.accent, '#ffaa00');
 
+  document.getElementById('appearance-theme-name').value = 'My olive';
+  document.getElementById('save-custom-theme').click();
+  const savedThemeOption = [...theme.options].find(option => option.value.startsWith('saved:'));
+  assert.equal(savedThemeOption.textContent, 'My olive');
+  const savedThemes = JSON.parse(document.defaultView.localStorage.getItem('nexa-appearance')).savedThemes;
+  assert.equal(savedThemes.length, 1);
+  assert.equal(savedThemes[0].palette.background, '#123456');
+
+  theme.value = savedThemeOption.value;
+  theme.dispatchEvent(new document.defaultView.Event('change', {bubbles: true}));
+  assert.equal(document.documentElement.style.getPropertyValue('--bg'), '#123456');
+
   document.getElementById('appearance-reset').click();
   assert.equal(theme.value, 'system');
+  assert.equal(saveThemePanel.hidden, true);
   assert.equal(document.documentElement.style.getPropertyValue('--bg'), '');
   assert.equal(document.body.style.backgroundImage, '');
   document.getElementById('appearance-settings-back').click();

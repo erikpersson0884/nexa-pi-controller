@@ -28,7 +28,7 @@ let timersPage = location.hash === '#timers';
 let suppressTileClick = false;
 let allOffTimer = null;
 let allCommandInProgress = false;
-let appearance = {theme: 'system', custom: null, customEdited: false};
+let appearance = {theme: 'system', custom: null, customEdited: false, savedThemes: []};
 const MAP_SIZE = 100;
 const MIN_ROOM_SIZE = 10;
 const LONG_PRESS_MS = 500;
@@ -112,6 +112,10 @@ function readSystemPalette() {
 function paletteForTheme(theme) {
   if (theme === 'system') return readSystemPalette();
   if (theme === 'custom') return {...appearance.custom};
+  if (theme.startsWith('saved:')) {
+    const savedTheme = appearance.savedThemes.find(item => item.id === theme.slice(6));
+    if (savedTheme) return {...savedTheme.palette};
+  }
   return {...APPEARANCE_THEMES[theme]};
 }
 
@@ -154,8 +158,18 @@ function saveAppearance() {
 }
 
 function syncAppearanceControls() {
-  document.getElementById('appearance-theme').value = appearance.theme;
+  const select = document.getElementById('appearance-theme');
+  select.querySelectorAll('option[data-saved-theme]').forEach(option => option.remove());
+  const customOption = select.querySelector('option[value="custom"]');
+  appearance.savedThemes.forEach(savedTheme => {
+    const option = el('option', '', savedTheme.name);
+    option.value = `saved:${savedTheme.id}`;
+    option.dataset.savedTheme = 'true';
+    select.insertBefore(option, customOption);
+  });
+  select.value = appearance.theme;
   document.getElementById('custom-palette').hidden = appearance.theme !== 'custom';
+  document.getElementById('save-custom-theme-panel').hidden = appearance.theme !== 'custom';
   const palette = paletteForTheme(appearance.theme);
   document.getElementById('appearance-background').value = palette.background;
   document.getElementById('appearance-cards').value = palette.cards;
@@ -170,9 +184,28 @@ function initializeAppearance() {
   } catch (_) {}
   const system = readSystemPalette();
   const storedPalette = saved.custom || {};
-  const validThemes = ['system', 'dark', 'light', 'ocean', 'forest', 'sage', 'custom'];
+  const usedIds = new Set();
+  const savedThemes = Array.isArray(saved.savedThemes)
+    ? saved.savedThemes.filter(item => {
+      if (!item || typeof item.id !== 'string' || !/^[a-z\d_-]+$/i.test(item.id)
+          || typeof item.name !== 'string' || !item.name.trim() || usedIds.has(item.id)) return false;
+      usedIds.add(item.id);
+      return true;
+    }).map(item => ({
+      id: item.id,
+      name: item.name.trim().slice(0, 40),
+      palette: {
+        background: colorToHex(item.palette?.background, system.background),
+        cards: colorToHex(item.palette?.cards, system.cards),
+        text: colorToHex(item.palette?.text, system.text),
+        accent: colorToHex(item.palette?.accent, system.accent),
+      },
+    }))
+    : [];
+  const builtInThemes = ['system', 'dark', 'light', 'ocean', 'forest', 'sage', 'custom'];
   appearance = {
-    theme: validThemes.includes(saved.theme) ? saved.theme : 'system',
+    theme: (builtInThemes.includes(saved.theme)
+      || savedThemes.some(item => saved.theme === `saved:${item.id}`)) ? saved.theme : 'system',
     custom: {
       background: colorToHex(storedPalette.background, system.background),
       cards: colorToHex(storedPalette.cards, system.cards),
@@ -180,6 +213,7 @@ function initializeAppearance() {
       accent: colorToHex(storedPalette.accent, system.accent),
     },
     customEdited: saved.customEdited === true || saved.theme === 'custom',
+    savedThemes,
   };
   applyAppearance();
   syncAppearanceControls();
@@ -213,6 +247,32 @@ function updateCustomAppearance() {
   applyAppearance();
   syncAppearanceControls();
   saveAppearance();
+}
+
+function saveCustomTheme() {
+  const nameInput = document.getElementById('appearance-theme-name');
+  const name = nameInput.value.trim().slice(0, 40);
+  if (!name) {
+    showToast('Enter a theme name');
+    nameInput.focus();
+    return;
+  }
+  const builtInNames = ['system default', 'dark', 'light', 'ocean', 'forest', 'sage & cream', 'custom'];
+  if (builtInNames.includes(name.toLowerCase())
+      || appearance.savedThemes.some(theme => theme.name.toLowerCase() === name.toLowerCase())) {
+    showToast('A theme with that name already exists');
+    nameInput.focus();
+    return;
+  }
+  appearance.savedThemes.push({
+    id: createId('theme'),
+    name: name.slice(0, 40),
+    palette: {...appearance.custom},
+  });
+  appearance.customEdited = true;
+  syncAppearanceControls();
+  saveAppearance();
+  showToast(`Saved "${name}" as a theme`);
 }
 
 function resetAppearance() {
@@ -1450,6 +1510,7 @@ document.getElementById('appearance-theme').onchange = event =>
   .forEach(id => {
     document.getElementById(id).oninput = updateCustomAppearance;
   });
+document.getElementById('save-custom-theme').onclick = saveCustomTheme;
 document.getElementById('appearance-reset').onclick = resetAppearance;
 document.getElementById('page-add-timer').onclick = () => openEditor('countdown');
 window.addEventListener('hashchange', () => {

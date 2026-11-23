@@ -104,6 +104,11 @@ input:focus, select:focus { outline:2px solid color-mix(in srgb, var(--primary) 
 .appearance-color input[type=color] { width:52px; height:40px; padding:3px;
                                       border:1px solid var(--line); border-radius:8px;
                                       background:var(--btn); }
+.save-theme-panel { margin-top:12px; padding:16px; border:1px solid var(--line);
+                    border-radius:14px; background:var(--card); }
+.save-theme-panel label { display:block; margin-bottom:7px; color:var(--muted);
+                          font-size:.9rem; font-weight:600; }
+#save-custom-theme { width:100%; margin-top:8px; }
 #appearance-reset { width:100%; margin-top:14px; }
 .timer-time { font-size:1.25rem; font-weight:650; }
 .timer-action { color:var(--muted); font-size:.9rem; }
