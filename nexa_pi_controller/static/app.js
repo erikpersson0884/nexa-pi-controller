@@ -224,6 +224,8 @@ function renderMap() {
       : 'No rooms yet. Press Edit layout to draw your apartment.'));
     return;
   }
+  const layout = el('div', 'map-layout');
+  map.append(layout);
   rooms.forEach(room => {
     const {total, on} = roomOutletStats(room);
     const node = el('button', `room${on > 0 && !mapEditing ? ' on' : ''}`);
@@ -246,7 +248,7 @@ function renderMap() {
       node.setAttribute('aria-pressed', String(on > 0));
       node.onclick = () => toggleRoom(room);
     }
-    map.append(node);
+    layout.append(node);
   });
 }
 
@@ -257,13 +259,32 @@ function clampRoom(room) {
   room.y = Math.min(MAP_SIZE - room.h, Math.max(0, room.y));
 }
 
+function overlapsRoom(room, ignoredId = room.id) {
+  return rooms.some(other => other.id !== ignoredId
+    && room.x < other.x + other.w && room.x + room.w > other.x
+    && room.y < other.y + other.h && room.y + room.h > other.y);
+}
+
+function findRoomPosition() {
+  for (let size = 30; size >= MIN_ROOM_SIZE; size -= 5) {
+    const preferred = {x: 10, y: 10, w: size, h: size};
+    if (!overlapsRoom(preferred)) return preferred;
+    for (let y = 0; y <= MAP_SIZE - size; y += 5) {
+      for (let x = 0; x <= MAP_SIZE - size; x += 5) {
+        const candidate = {x, y, w: size, h: size};
+        if (!overlapsRoom(candidate)) return candidate;
+      }
+    }
+  }
+  return null;
+}
+
 function startRoomGesture(event, room, type) {
   event.preventDefault();
   event.stopPropagation();
-  const map = document.getElementById('map');
-  const bounds = map.getBoundingClientRect();
+  const bounds = event.currentTarget.closest('.map-layout').getBoundingClientRect();
   mapGesture = {
-    room, type, moved: false, startX: event.clientX, startY: event.clientY,
+    room, type, moved: false, changed: false, startX: event.clientX, startY: event.clientY,
     origin: {x: room.x, y: room.y, w: room.w, h: room.h},
     scale: MAP_SIZE / (bounds.width || 1),
     node: event.currentTarget.closest('.room'),
@@ -281,14 +302,20 @@ function moveRoomGesture(event) {
   if (!g.moved && Math.hypot(dx, dy) < 5) return;
   g.moved = true;
   const room = g.room;
+  const candidate = {...room};
   if (g.type === 'move') {
-    room.x = Math.round(g.origin.x + dx * g.scale);
-    room.y = Math.round(g.origin.y + dy * g.scale);
+    candidate.x = Math.round(g.origin.x + dx * g.scale);
+    candidate.y = Math.round(g.origin.y + dy * g.scale);
   } else {
-    room.w = Math.round(g.origin.w + dx * g.scale);
-    room.h = Math.round(g.origin.h + dy * g.scale);
+    candidate.w = Math.round(g.origin.w + dx * g.scale);
+    candidate.h = Math.round(g.origin.h + dy * g.scale);
   }
-  clampRoom(room);
+  clampRoom(candidate);
+  if (overlapsRoom(candidate)) return;
+  if (candidate.x === room.x && candidate.y === room.y
+      && candidate.w === room.w && candidate.h === room.h) return;
+  Object.assign(room, candidate);
+  g.changed = true;
   Object.assign(g.node.style, {
     left: `${room.x}%`, top: `${room.y}%`, width: `${room.w}%`, height: `${room.h}%`,
   });
@@ -304,9 +331,9 @@ async function endRoomGesture(event) {
   if (event.type === 'pointercancel') {
     Object.assign(g.room, g.origin);
     renderMap();
-  } else if (g.moved) {
+  } else if (g.changed) {
     await saveRooms();
-  } else {
+  } else if (!g.moved) {
     openRoomModal(g.room);
   }
 }
@@ -352,9 +379,14 @@ async function toggleMapEditing() {
 }
 
 async function addRoom() {
+  const position = findRoomPosition();
+  if (!position) {
+    showToast('No room space available');
+    return;
+  }
   const room = {
     id: (crypto.randomUUID ? crypto.randomUUID() : `r${Date.now()}${Math.random().toString(16).slice(2)}`),
-    name: `Room ${rooms.length + 1}`, x: 10, y: 10, w: 30, h: 30, units: [],
+    name: `Room ${rooms.length + 1}`, ...position, units: [],
   };
   rooms.push(room);
   await saveRooms();

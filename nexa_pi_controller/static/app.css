@@ -222,6 +222,7 @@ body { padding-bottom:calc(84px + env(safe-area-inset-bottom)); }
 .map-toolbar .hint { flex:1; margin:0; }
 .map { position:relative; width:100%; aspect-ratio:1 / 1; border-radius:16px; overflow:hidden;
        background:var(--card); touch-action:manipulation; }
+.map-layout { position:absolute; inset:8px; }
 .map.editing { touch-action:none;
   background-image:linear-gradient(var(--line) 1px, transparent 1px),
                    linear-gradient(90deg, var(--line) 1px, transparent 1px);
@@ -231,8 +232,8 @@ body { padding-bottom:calc(84px + env(safe-area-inset-bottom)); }
         background:var(--btn); color:var(--text); text-align:center; overflow:hidden;
         user-select:none; -webkit-user-select:none; }
 .room.on { background:var(--on); border-color:var(--on); color:#fff; }
-.room-name { font-weight:600; font-size:.95rem; line-height:1.15; overflow-wrap:anywhere; }
-.room-status { font-size:.78rem; opacity:.85; }
+.room-name { width:100%; font-weight:600; font-size:.95rem; line-height:1.15; text-align:center; overflow-wrap:anywhere; }
+.room-status { width:100%; font-size:.78rem; text-align:center; opacity:.85; }
 .map.editing .room { cursor:move; touch-action:none; border-style:dashed; }
 .room-resize { position:absolute; right:0; bottom:0; width:26px; height:26px; min-height:0; padding:0;
                border-radius:6px 0 6px 0; background:var(--primary); cursor:nwse-resize; touch-action:none; }

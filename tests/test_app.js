@@ -475,11 +475,59 @@ test('map view toggles all outlets in a room', async t => {
     rooms: [{id: 'r1', name: 'Hall', x: 0, y: 0, w: 40, h: 40, units: [1, 2]}],
   });
   const room = document.querySelector('.room');
+  assert.equal(room.parentElement.className, 'map-layout');
   assert.match(room.textContent, /Hall/);
   assert.match(room.textContent, /1\/2 on/);
   room.click();
   await settle();
   assert.ok(requests.some(r => r.url === '/api/rooms/r1/off' && r.method === 'POST'));
+});
+
+test('new rooms are placed without overlapping existing rooms', async t => {
+  const {document, requests} = await setup(t, {
+    view: 'map',
+    rooms: [{id: 'r1', name: 'Hall', x: 10, y: 10, w: 30, h: 30, units: []}],
+  });
+  document.getElementById('edit-map').click();
+  await settle();
+  document.getElementById('add-room').click();
+  await settle();
+  const savedRooms = requests.find(request => request.url === '/api/rooms' && request.method === 'PUT').body;
+  assert.equal(savedRooms.length, 2);
+  assert.deepEqual(
+    {x: savedRooms[1].x, y: savedRooms[1].y, w: savedRooms[1].w, h: savedRooms[1].h},
+    {x: 40, y: 0, w: 30, h: 30},
+  );
+});
+
+test('rooms cannot be moved or resized into another room', async t => {
+  const {window, document, requests} = await setup(t, {
+    view: 'map',
+    rooms: [
+      {id: 'r1', name: 'Hall', x: 0, y: 0, w: 30, h: 30, units: []},
+      {id: 'r2', name: 'Kitchen', x: 40, y: 0, w: 30, h: 30, units: []},
+    ],
+  });
+  document.getElementById('edit-map').click();
+  await settle();
+  document.querySelector('.map-layout').getBoundingClientRect = () => ({width: 100});
+  const room = document.querySelector('[data-room="r1"]');
+  room.dispatchEvent(new window.MouseEvent('pointerdown', {
+    bubbles: true, cancelable: true, clientX: 0, clientY: 0,
+  }));
+  window.dispatchEvent(new window.MouseEvent('pointermove', {clientX: 15, clientY: 0}));
+  window.dispatchEvent(new window.MouseEvent('pointerup'));
+  await settle();
+  assert.equal(room.style.left, '0%');
+
+  room.querySelector('.room-resize').dispatchEvent(new window.MouseEvent('pointerdown', {
+    bubbles: true, cancelable: true, clientX: 0, clientY: 0,
+  }));
+  window.dispatchEvent(new window.MouseEvent('pointermove', {clientX: 15, clientY: 0}));
+  window.dispatchEvent(new window.MouseEvent('pointerup'));
+  await settle();
+  assert.equal(room.style.width, '30%');
+  assert.equal(requests.some(request => request.url === '/api/rooms' && request.method === 'PUT'), false);
 });
 
 test('leaving the timers page by choosing a view shows outlets again', async t => {
