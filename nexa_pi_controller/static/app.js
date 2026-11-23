@@ -215,11 +215,11 @@ function renderMap() {
   const map = document.getElementById('map');
   while (map.firstChild) map.removeChild(map.firstChild);
   map.classList.toggle('editing', mapEditing);
+  document.querySelector('.map-toolbar').classList.toggle('editing', mapEditing);
   document.getElementById('edit-map').textContent = mapEditing ? 'Done' : 'Edit layout';
-  document.getElementById('add-room').hidden = !mapEditing;
+  document.getElementById('map-edit-tools').hidden = !mapEditing;
   document.getElementById('cancel-map-edit').hidden = !mapEditing;
   const overlapToggle = document.getElementById('toggle-room-overlap');
-  overlapToggle.hidden = !mapEditing;
   overlapToggle.textContent = `Overlap: ${allowRoomOverlap ? 'On' : 'Off'}`;
   overlapToggle.setAttribute('aria-pressed', String(allowRoomOverlap));
   document.getElementById('map-hint').textContent = mapEditing

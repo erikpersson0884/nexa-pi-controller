@@ -33,11 +33,15 @@
   <section id="map-view" hidden>
     <div class="map-toolbar">
       <p id="map-hint" class="hint">Tap a room to switch its outlets.</p>
-      <button id="add-room" class="secondary" type="button" hidden>＋ Add room</button>
-      <button id="toggle-room-overlap" class="secondary" type="button" aria-label="Allow room overlap"
-              title="Toggle whether rooms can overlap" aria-pressed="false" hidden>Overlap: Off</button>
-      <button id="cancel-map-edit" class="secondary" type="button" hidden>Cancel</button>
-      <button id="edit-map" class="secondary" type="button">Edit layout</button>
+      <div id="map-edit-tools" class="map-edit-tools" hidden>
+        <button id="add-room" class="secondary" type="button">＋ Add room</button>
+        <button id="toggle-room-overlap" class="secondary" type="button" aria-label="Allow room overlap"
+                title="Toggle whether rooms can overlap" aria-pressed="false">Overlap: Off</button>
+      </div>
+      <div class="map-edit-actions">
+        <button id="cancel-map-edit" class="secondary" type="button" hidden>Cancel</button>
+        <button id="edit-map" class="secondary" type="button">Edit layout</button>
+      </div>
     </div>
     <div id="map" class="map"></div>
   </section>
