@@ -23,14 +23,29 @@ let mapGesture = null;
 let editorUnits = [];
 let timerSheetOpen = false;
 let settingsPage = location.hash === '#settings';
+let appearancePage = location.hash === '#appearance';
 let timersPage = location.hash === '#timers';
 let suppressTileClick = false;
 let allOffTimer = null;
 let allCommandInProgress = false;
+let appearance = {theme: 'system', custom: null, customEdited: false};
 const MAP_SIZE = 100;
 const MIN_ROOM_SIZE = 10;
 const LONG_PRESS_MS = 500;
 const ALL_OFF_DOUBLE_PRESS_MS = 400;
+const APPEARANCE_STORAGE_KEY = 'nexa-appearance';
+const APPEARANCE_THEMES = {
+  dark: {background: '#121417', cards: '#1c1f24', text: '#f1f3f5', accent: '#15803d'},
+  light: {background: '#f4f5f7', cards: '#ffffff', text: '#1c1e21', accent: '#15803d'},
+  ocean: {background: '#10212d', cards: '#1a3040', text: '#e8f4fb', accent: '#0284c7'},
+  forest: {background: '#142119', cards: '#1f3025', text: '#edf5ee', accent: '#16803d'},
+  sage: {
+    background: '#fbf8e8', cards: '#fffdee', text: '#2d3829', accent: '#4a6034',
+    muted: '#66715f', btn: '#eeeedb', line: '#899572',
+    shadow: '0 12px 30px rgba(45, 56, 41, .12)',
+    backgroundImage: 'linear-gradient(180deg, #c5d4c5 0%, #e8e8cb 18%, #fbf8e8 31%, #fbf8e8 100%)',
+  },
+};
 const ICONS = {
   power: [['path', {d: 'M18.36 6.64a9 9 0 1 1-12.73 0'}], ['path', {d: 'M12 2v10'}]],
   clock: [['circle', {cx: 12, cy: 12, r: 10}], ['polyline', {points: '12 6 12 12 16 14'}]],
@@ -55,7 +70,7 @@ function readView() {
 
 function setView(view) {
   viewMode = ['grid', 'map'].includes(view) ? view : 'list';
-  if (settingsPage || timersPage) showUtilityPage(null);
+  if (settingsPage || appearancePage || timersPage) showUtilityPage(null);
   try { localStorage.setItem('nexa-view', viewMode); } catch (_) {}
   if (viewMode !== 'map' && mapEditing) cancelMapEditing();
   renderDevices();
@@ -64,6 +79,7 @@ function setView(view) {
 
 function showUtilityPage(page) {
   settingsPage = page === 'settings';
+  appearancePage = page === 'appearance';
   timersPage = page === 'timers';
   const hash = page ? `#${page}` : '';
   if (location.hash !== hash) {
@@ -71,6 +87,141 @@ function showUtilityPage(page) {
     else if (location.hash) history.replaceState(null, '', location.pathname + location.search);
   }
   renderDevices();
+}
+
+function colorToHex(value, fallback = '#121417') {
+  if (typeof value !== 'string') return fallback;
+  const hex = value.trim().match(/^#[\da-f]{6}$/i);
+  if (hex) return hex[0].toLowerCase();
+  const rgb = value.match(/rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/i);
+  if (!rgb) return fallback;
+  return `#${rgb.slice(1, 4).map(channel =>
+    Number(channel).toString(16).padStart(2, '0')).join('')}`;
+}
+
+function readSystemPalette() {
+  const styles = getComputedStyle(document.documentElement);
+  return {
+    background: colorToHex(styles.getPropertyValue('--bg')),
+    cards: colorToHex(styles.getPropertyValue('--card'), '#1c1f24'),
+    text: colorToHex(styles.getPropertyValue('--text'), '#f1f3f5'),
+    accent: colorToHex(styles.getPropertyValue('--primary'), '#15803d'),
+  };
+}
+
+function paletteForTheme(theme) {
+  if (theme === 'system') return readSystemPalette();
+  if (theme === 'custom') return {...appearance.custom};
+  return {...APPEARANCE_THEMES[theme]};
+}
+
+function applyAppearance() {
+  const root = document.documentElement;
+  const variables = ['--bg', '--card', '--text', '--muted', '--on', '--primary',
+    '--btn', '--line', '--shadow', '--accent-contrast'];
+  if (appearance.theme === 'system') {
+    variables.forEach(name => root.style.removeProperty(name));
+    document.body.style.removeProperty('background-image');
+    return;
+  }
+  const palette = paletteForTheme(appearance.theme);
+  root.style.setProperty('--bg', palette.background);
+  root.style.setProperty('--card', palette.cards);
+  root.style.setProperty('--text', palette.text);
+  root.style.setProperty('--primary', palette.accent);
+  root.style.setProperty('--on', palette.accent);
+  root.style.setProperty('--btn', palette.btn || 'color-mix(in srgb, var(--card) 88%, var(--text))');
+  root.style.setProperty('--line', palette.line || 'color-mix(in srgb, var(--card) 78%, var(--text))');
+  root.style.setProperty('--muted', palette.muted || 'color-mix(in srgb, var(--text) 62%, var(--bg))');
+  if (palette.shadow) root.style.setProperty('--shadow', palette.shadow);
+  else root.style.removeProperty('--shadow');
+  if (palette.backgroundImage) document.body.style.backgroundImage = palette.backgroundImage;
+  else document.body.style.removeProperty('background-image');
+  const channels = [1, 3, 5].map(index => parseInt(palette.accent.slice(index, index + 2), 16) / 255);
+  const luminance = channels.reduce((sum, channel, index) => {
+    const linear = channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+    return sum + linear * [0.2126, 0.7152, 0.0722][index];
+  }, 0);
+  root.style.setProperty('--accent-contrast', luminance > 0.45 ? '#121417' : '#ffffff');
+}
+
+function saveAppearance() {
+  try {
+    localStorage.setItem(APPEARANCE_STORAGE_KEY, JSON.stringify(appearance));
+  } catch (error) {
+    showToast(`Could not save appearance: ${error.message}`);
+  }
+}
+
+function syncAppearanceControls() {
+  document.getElementById('appearance-theme').value = appearance.theme;
+  document.getElementById('custom-palette').hidden = appearance.theme !== 'custom';
+  const palette = paletteForTheme(appearance.theme);
+  document.getElementById('appearance-background').value = palette.background;
+  document.getElementById('appearance-cards').value = palette.cards;
+  document.getElementById('appearance-text').value = palette.text;
+  document.getElementById('appearance-accent').value = palette.accent;
+}
+
+function initializeAppearance() {
+  let saved = {};
+  try {
+    saved = JSON.parse(localStorage.getItem(APPEARANCE_STORAGE_KEY) || '{}') || {};
+  } catch (_) {}
+  const system = readSystemPalette();
+  const storedPalette = saved.custom || {};
+  const validThemes = ['system', 'dark', 'light', 'ocean', 'forest', 'sage', 'custom'];
+  appearance = {
+    theme: validThemes.includes(saved.theme) ? saved.theme : 'system',
+    custom: {
+      background: colorToHex(storedPalette.background, system.background),
+      cards: colorToHex(storedPalette.cards, system.cards),
+      text: colorToHex(storedPalette.text, system.text),
+      accent: colorToHex(storedPalette.accent, system.accent),
+    },
+    customEdited: saved.customEdited === true || saved.theme === 'custom',
+  };
+  applyAppearance();
+  syncAppearanceControls();
+}
+
+function chooseAppearanceTheme(theme) {
+  if (theme === 'custom' && appearance.theme !== 'custom' && !appearance.customEdited) {
+    const palette = paletteForTheme(appearance.theme);
+    appearance.custom = {
+      background: palette.background,
+      cards: palette.cards,
+      text: palette.text,
+      accent: palette.accent,
+    };
+  }
+  appearance.theme = theme;
+  applyAppearance();
+  syncAppearanceControls();
+  saveAppearance();
+}
+
+function updateCustomAppearance() {
+  appearance.theme = 'custom';
+  appearance.customEdited = true;
+  appearance.custom = {
+    background: document.getElementById('appearance-background').value,
+    cards: document.getElementById('appearance-cards').value,
+    text: document.getElementById('appearance-text').value,
+    accent: document.getElementById('appearance-accent').value,
+  };
+  applyAppearance();
+  syncAppearanceControls();
+  saveAppearance();
+}
+
+function resetAppearance() {
+  appearance.theme = 'system';
+  applyAppearance();
+  appearance.custom = readSystemPalette();
+  appearance.customEdited = false;
+  syncAppearanceControls();
+  saveAppearance();
 }
 
 function icon(name, size = 20) {
@@ -677,23 +828,26 @@ function attachLongPress(node, onLongPress) {
 function renderDevices() {
   const list = document.getElementById('outlet-list');
   while (list.firstChild) list.removeChild(list.firstChild);
-  const utilityPage = settingsPage || timersPage;
+  const utilityPage = settingsPage || appearancePage || timersPage;
   const grid = viewMode === 'grid' && !reorderMode;
   const mapView = viewMode === 'map' && !reorderMode && !utilityPage;
   list.hidden = mapView || utilityPage;
   document.getElementById('map-view').hidden = !mapView || utilityPage;
   document.getElementById('settings-page').hidden = !settingsPage;
+  document.getElementById('appearance-page').hidden = !appearancePage;
   document.getElementById('timers-page').hidden = !timersPage;
   document.getElementById('open-settings').setAttribute('aria-pressed', String(utilityPage));
   list.classList.toggle('grid', grid);
   document.body.classList.toggle('view-grid', grid);
   const onCount = devices.filter(d => d.state === true).length;
   document.getElementById('page-title').textContent = reorderMode
-    ? 'Reorder' : settingsPage ? 'Settings' : 'Nexa Control';
+    ? 'Reorder' : settingsPage ? 'Settings' : appearancePage ? 'Appearance'
+      : 'Nexa Control';
   document.getElementById('summary').textContent = reorderMode
     ? 'Drag the handle or use the arrows'
     : settingsPage ? 'Manage Nexa Control'
-    : `${devices.length} outlet${devices.length === 1 ? '' : 's'} · ${onCount} on`;
+      : appearancePage ? 'Customize page colors'
+        : `${devices.length} outlet${devices.length === 1 ? '' : 's'} · ${onCount} on`;
   document.getElementById('all-off').hidden = reorderMode || utilityPage;
   document.getElementById('reorder-done').hidden = !reorderMode;
   document.getElementById('view-bar').hidden = reorderMode;
@@ -701,7 +855,7 @@ function renderDevices() {
     button.setAttribute('aria-pressed', String(!utilityPage && button.dataset.view === viewMode));
   });
   document.getElementById('add-outlet').hidden = reorderMode || utilityPage || grid || mapView;
-  if (settingsPage) {
+  if (settingsPage || appearancePage) {
     return;
   }
   if (timersPage) {
@@ -1282,9 +1436,25 @@ document.getElementById('settings-timers-link').onclick = event => {
   event.preventDefault();
   showUtilityPage('timers');
 };
+document.getElementById('settings-appearance-link').onclick = event => {
+  event.preventDefault();
+  showUtilityPage('appearance');
+};
+document.getElementById('appearance-settings-back').onclick = event => {
+  event.preventDefault();
+  showUtilityPage('settings');
+};
+document.getElementById('appearance-theme').onchange = event =>
+  chooseAppearanceTheme(event.target.value);
+['appearance-background', 'appearance-cards', 'appearance-text', 'appearance-accent']
+  .forEach(id => {
+    document.getElementById(id).oninput = updateCustomAppearance;
+  });
+document.getElementById('appearance-reset').onclick = resetAppearance;
 document.getElementById('page-add-timer').onclick = () => openEditor('countdown');
 window.addEventListener('hashchange', () => {
   settingsPage = location.hash === '#settings';
+  appearancePage = location.hash === '#appearance';
   timersPage = location.hash === '#timers';
   renderDevices();
 });
@@ -1311,6 +1481,7 @@ document.getElementById('floor-form').onsubmit = saveFloor;
 document.getElementById('room-form').onsubmit = saveRoom;
 document.getElementById('delete-room').onclick = deleteRoom;
 document.getElementById('settings-icon').append(icon('settings', 20));
+document.getElementById('settings-appearance-icon').append(icon('settings', 20));
 document.getElementById('settings-timers-icon').append(icon('clock', 20));
 document.getElementById('reorder-done').onclick = () => leaveReorderMode(true);
 document.getElementById('pair-form').onsubmit = pairOutlet;
@@ -1359,6 +1530,7 @@ document.querySelectorAll('.sheet').forEach(sheet => {
   };
 });
 
+initializeAppearance();
 buildDays();
 renderDevices();
 if (viewMode === 'map') refreshMap().catch(error => showToast(error.message));

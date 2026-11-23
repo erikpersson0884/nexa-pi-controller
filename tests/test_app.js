@@ -412,6 +412,49 @@ test('settings links to the existing timers page', async t => {
   assert.equal(document.getElementById('timers-page').hidden, true);
 });
 
+test('appearance settings apply and save preset and custom palettes', async t => {
+  const {document} = await setup(t, {devices: lamps});
+  document.getElementById('open-settings').click();
+  document.getElementById('settings-appearance-link').click();
+  assert.equal(document.getElementById('appearance-page').hidden, false);
+  assert.equal(document.getElementById('settings-page').hidden, true);
+
+  const theme = document.getElementById('appearance-theme');
+  theme.value = 'sage';
+  theme.dispatchEvent(new document.defaultView.Event('change', {bubbles: true}));
+  assert.equal(document.documentElement.style.getPropertyValue('--bg'), '#fbf8e8');
+  assert.equal(document.documentElement.style.getPropertyValue('--line'), '#899572');
+  assert.match(document.body.style.backgroundImage, /linear-gradient/);
+
+  theme.value = 'ocean';
+  theme.dispatchEvent(new document.defaultView.Event('change', {bubbles: true}));
+  assert.equal(document.documentElement.style.getPropertyValue('--bg'), '#10212d');
+  assert.equal(document.body.style.backgroundImage, '');
+
+  theme.value = 'custom';
+  theme.dispatchEvent(new document.defaultView.Event('change', {bubbles: true}));
+  const background = document.getElementById('appearance-background');
+  background.value = '#123456';
+  background.dispatchEvent(new document.defaultView.Event('input', {bubbles: true}));
+  assert.equal(document.documentElement.style.getPropertyValue('--bg'), '#123456');
+  const accent = document.getElementById('appearance-accent');
+  accent.value = '#ffaa00';
+  accent.dispatchEvent(new document.defaultView.Event('input', {bubbles: true}));
+  assert.equal(document.documentElement.style.getPropertyValue('--primary'), '#ffaa00');
+  assert.equal(document.documentElement.style.getPropertyValue('--accent-contrast'), '#121417');
+  const saved = JSON.parse(document.defaultView.localStorage.getItem('nexa-appearance'));
+  assert.equal(saved.theme, 'custom');
+  assert.equal(saved.custom.background, '#123456');
+  assert.equal(saved.custom.accent, '#ffaa00');
+
+  document.getElementById('appearance-reset').click();
+  assert.equal(theme.value, 'system');
+  assert.equal(document.documentElement.style.getPropertyValue('--bg'), '');
+  assert.equal(document.body.style.backgroundImage, '');
+  document.getElementById('appearance-settings-back').click();
+  assert.equal(document.getElementById('settings-page').hidden, false);
+});
+
 test('All timers page lists timers sorted with tags and adds with no preselection', async t => {
   const {document} = await setup(t, {
     devices: lamps, view: 'grid',

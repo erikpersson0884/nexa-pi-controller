@@ -32,6 +32,14 @@
   </section>
   <section id="settings-page" hidden>
     <div class="settings-list">
+      <a id="settings-appearance-link" class="settings-link" href="#appearance">
+        <span id="settings-appearance-icon" class="settings-link-icon"></span>
+        <span class="settings-link-copy">
+          <span class="settings-link-title">Appearance</span>
+          <span class="settings-link-description">Customize page colors</span>
+        </span>
+        <span class="settings-link-chevron" aria-hidden="true">›</span>
+      </a>
       <a id="settings-timers-link" class="settings-link" href="#timers">
         <span id="settings-timers-icon" class="settings-link-icon"></span>
         <span class="settings-link-copy">
@@ -40,6 +48,41 @@
         </span>
         <span class="settings-link-chevron" aria-hidden="true">›</span>
       </a>
+    </div>
+  </section>
+  <section id="appearance-page" hidden>
+    <a id="appearance-settings-back" class="settings-back-link" href="#settings">‹ Settings</a>
+    <div class="appearance-panel">
+      <label for="appearance-theme">Color theme</label>
+      <select id="appearance-theme">
+        <option value="system">System default</option>
+        <option value="dark">Dark</option>
+        <option value="light">Light</option>
+        <option value="ocean">Ocean</option>
+        <option value="forest">Forest</option>
+        <option value="sage">Sage &amp; cream</option>
+        <option value="custom">Custom</option>
+      </select>
+      <p class="appearance-description">Changes apply immediately and are saved on this device.</p>
+      <div id="custom-palette" class="custom-palette" hidden>
+        <label class="appearance-color">
+          <span>Background</span>
+          <input id="appearance-background" type="color" aria-label="Page background color">
+        </label>
+        <label class="appearance-color">
+          <span>Cards</span>
+          <input id="appearance-cards" type="color" aria-label="Card color">
+        </label>
+        <label class="appearance-color">
+          <span>Text</span>
+          <input id="appearance-text" type="color" aria-label="Text color">
+        </label>
+        <label class="appearance-color">
+          <span>Accent</span>
+          <input id="appearance-accent" type="color" aria-label="Accent color">
+        </label>
+      </div>
+      <button id="appearance-reset" class="secondary" type="button">Reset to system colors</button>
     </div>
   </section>
   <section id="map-view" hidden>
