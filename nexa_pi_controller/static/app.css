@@ -76,6 +76,13 @@ h2 { margin:0 0 16px; font-size:1.2rem; }
 .add-card { width:100%; min-height:60px; margin-top:4px; border:1px dashed var(--muted);
             background:transparent; color:var(--text); }
 .empty { padding:24px 8px; color:var(--muted); text-align:center; }
+.receiver-entry-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.receiver-entry-heading h2 { margin:0; font-size:1.05rem; overflow-wrap:anywhere; }
+.receiver-action { flex:none; padding:4px 10px; border-radius:8px; background:var(--btn); font-size:.8rem; }
+.receiver-action.on { color:var(--on); }
+.receiver-details { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px 16px; margin:14px 0 0; }
+.receiver-details dt { color:var(--muted); font-size:.75rem; }
+.receiver-details dd { margin:0; overflow-wrap:anywhere; font-size:.9rem; }
 .overlay { position:fixed; z-index:10; inset:0; display:flex; align-items:center;
            justify-content:center; padding:20px; background:rgba(0,0,0,.5); }
 .overlay[hidden] { display:none; }

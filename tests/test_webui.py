@@ -2,6 +2,7 @@ import unittest
 import re
 import os
 import tempfile
+from collections import deque
 from unittest.mock import call, patch
 
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
@@ -479,6 +480,40 @@ class WebUiTestCase(unittest.TestCase):
         self.assertEqual(webui.state[0], False)
         self.assertEqual(webui.state[1], False)
         save_state.assert_called_once_with(webui.state)
+
+    def test_receiver_log_page_shows_received_commands_newest_first(self):
+        with patch.object(webui, "receiver_log", deque(maxlen=50)), \
+                patch.object(webui, "save_state"):
+            self.assertIn("No received commands yet.", self.client.get(
+                "/receiver-log"
+            ).get_data(as_text=True))
+            webui.receive_command(123, False, True, 0)
+            webui.receive_command(789, False, False, 8)
+            webui.receive_command(456, True, False, 15)
+            html = self.client.get("/receiver-log").get_data(as_text=True)
+
+        self.assertIn('http-equiv="refresh" content="5"', html)
+        self.assertIn(">ON</strong>", html)
+        self.assertIn(">OFF</strong>", html)
+        self.assertIn("Individual", html)
+        self.assertIn("Group", html)
+        self.assertIn("<h2>Test outlet</h2>", html)
+        self.assertIn("<h2>Unknown outlet</h2>", html)
+        self.assertIn("<h2>All configured outlets</h2>", html)
+        self.assertIn("<dt>Controller ID</dt><dd>123</dd>", html)
+        self.assertIn("<dt>Controller ID</dt><dd>456</dd>", html)
+        self.assertIn("<dt>Unit</dt><dd>0</dd>", html)
+        self.assertIn("<dt>Unit</dt><dd>8</dd>", html)
+        self.assertIn("<dt>Raw unit</dt><dd>15</dd>", html)
+        self.assertLess(html.index("<dd>456</dd>"), html.index("<dd>123</dd>"))
+        self.assertNotIn("/receiver-log", self.client.get("/").get_data(as_text=True))
+
+    def test_receiver_log_page_requires_login(self):
+        with self.client.session_transaction() as session:
+            session.clear()
+        response = self.client.get("/receiver-log")
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.location.startswith("/login?"))
 
     def test_device_order_can_be_updated(self):
         webui.configured_devices[:] = [

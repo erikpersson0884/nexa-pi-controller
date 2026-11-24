@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="refresh" content="5">
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+    <title>Receiver log - Nexa Control</title>
+</head>
+<body>
+<main class="account-main">
+    <header class="topbar">
+        <div class="topbar-title">
+            <h1>Receiver log</h1>
+            <p class="summary">Latest 50 received commands · Refreshes every 5 seconds</p>
+        </div>
+    </header>
+    <section aria-label="Received commands">
+        {% for command in commands %}
+        <article class="account-panel receiver-entry">
+            <div class="receiver-entry-heading">
+                <h2>{% if command.group %}All configured outlets{% else %}{{ outlet_names.get(command.unit, "Unknown outlet") }}{% endif %}</h2>
+                <strong class="receiver-action {{ 'on' if command.on else 'off' }}">{{ "ON" if command.on else "OFF" }}</strong>
+            </div>
+            <dl class="receiver-details">
+                <div><dt>Controller ID</dt><dd>{{ command.transmitter }}</dd></div>
+                <div><dt>Command</dt><dd>{{ "Group" if command.group else "Individual" }}</dd></div>
+                <div><dt>{{ "Raw unit" if command.group else "Unit" }}</dt><dd>{{ command.unit }}</dd></div>
+                <div><dt>Received</dt><dd>{{ command.time }}</dd></div>
+            </dl>
+        </article>
+        {% else %}
+        <p class="empty">No received commands yet.</p>
+        {% endfor %}
+    </section>
+</main>
+</body>
+</html>

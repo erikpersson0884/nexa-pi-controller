@@ -4,6 +4,7 @@ import json
 import os
 import secrets
 import time
+from datetime import datetime, timedelta
 from pathlib import Path
 
 DEV_DATA_DIR = Path(__file__).resolve().parent.parent / ".dev-data"
@@ -102,12 +103,30 @@ def main():
         print(f"Using existing development data in {DEV_DATA_DIR}; seeding skipped", flush=True)
 
     from . import user_store
-    from .webui import AUTH_PASSWORD, AUTH_USERNAME, HOST, PORT, app, start_background_services
+    from .webui import (
+        AUTH_PASSWORD, AUTH_USERNAME, HOST, PORT, app, receiver_log,
+        start_background_services,
+    )
 
     try:
         seed_users(DEV_DATA_DIR, AUTH_USERNAME, AUTH_PASSWORD)
     except user_store.BootstrapRequiredError as error:
         print(f"Development users not seeded: {error}", flush=True)
+
+    now = datetime.now()
+    if not receiver_log:
+        for minutes_ago, group, on, unit in (
+            (5, True, False, 0),
+            (3, False, True, 0),
+            (1, False, False, 1),
+        ):
+            receiver_log.append({
+                "time": (now - timedelta(minutes=minutes_ago)).strftime("%Y-%m-%d %H:%M:%S"),
+                "transmitter": 987654,
+                "group": group,
+                "on": on,
+                "unit": unit,
+            })
 
     start_background_services()
     app.run(host=HOST, port=PORT)

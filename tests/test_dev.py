@@ -114,8 +114,18 @@ def verify_app(app, host, port):
     devices = client.get("/api/devices", headers=headers)
     timers = client.get("/api/timers", headers=headers)
     layout = client.get("/api/map", headers=headers)
-    assert devices.status_code == timers.status_code == layout.status_code == 200
+    log = client.get("/api/remote/log", headers=headers)
+    assert devices.status_code == timers.status_code == layout.status_code == log.status_code == 200
     assert len(devices.json) == 4
+    assert [device["state"] for device in devices.json] == [True, False, True, False]
+    assert [(entry["group"], entry["on"], entry["unit"]) for entry in log.json] == [
+        (True, False, 0), (False, True, 0), (False, False, 1),
+    ]
+    assert client.post("/login", data={"username": "admin", "password": "test-password"}).status_code == 302
+    page = client.get("/receiver-log")
+    assert page.status_code == 200
+    assert b"<dt>Controller ID</dt><dd>987654</dd>" in page.data
+    assert b"Living room lamp" in page.data
     assert len(timers.json["schedules"]) == 2
     assert all(webui.parse_schedule(schedule)[1] is None for schedule in timers.json["schedules"])
     assert timers.json["countdowns"][0]["remaining"] > 0
@@ -151,12 +161,13 @@ with patch("flask.Flask.run", verify_app), patch.object(
             "AUTH_PASSWORD": "test-password",
             "API_KEY": "test-api-key",
         })
-        result = subprocess.run(
-            [sys.executable, "-c", script, str(self.data)],
-            cwd=Path(__file__).resolve().parent.parent,
-            env=environment, capture_output=True, text=True, timeout=30,
-        )
-        self.assertEqual(result.returncode, 0, result.stderr)
+        for _ in range(2):
+            result = subprocess.run(
+                [sys.executable, "-c", script, str(self.data)],
+                cwd=Path(__file__).resolve().parent.parent,
+                env=environment, capture_output=True, text=True, timeout=30,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse((Path(self.directory.name) / "normal-data").exists())
 
 

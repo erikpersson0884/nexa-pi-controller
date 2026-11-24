@@ -530,6 +530,16 @@ def index():
     return render_template("index.html")
 
 
+@app.get("/receiver-log")
+def receiver_log_page():
+    with state_lock:
+        commands = list(reversed(receiver_log))
+        outlet_names = {device["unit"]: device["name"] for device in configured_devices}
+    return render_template(
+        "receiver_log.html", commands=commands, outlet_names=outlet_names
+    )
+
+
 @app.get("/sw.js")
 def service_worker():
     return send_from_directory(app.static_folder, "sw.js")
