@@ -537,6 +537,10 @@ function renderMap() {
     return;
   }
   const layout = el('div', 'map-layout');
+  if (!mapEditing) {
+    const {x, y} = roomCenterOffset(floorRooms);
+    layout.style.transform = `translate(${x}%, ${y}%)`;
+  }
   map.append(layout);
   floorRooms.forEach(room => {
     const {total, on} = roomOutletStats(room);
@@ -561,6 +565,29 @@ function renderMap() {
       attachRoomActions(node, room);
     }
     layout.append(node);
+  });
+}
+
+function roomCenterOffset(floorRooms) {
+  const minX = Math.min(...floorRooms.map(room => room.x));
+  const minY = Math.min(...floorRooms.map(room => room.y));
+  const maxX = Math.max(...floorRooms.map(room => room.x + room.w));
+  const maxY = Math.max(...floorRooms.map(room => room.y + room.h));
+  return {x: (MAP_SIZE - minX - maxX) / 2, y: (MAP_SIZE - minY - maxY) / 2};
+}
+
+function centeredRooms(sourceRooms) {
+  const offsets = new Map();
+  sourceRooms.forEach(room => {
+    if (!offsets.has(room.floor_id)) {
+      offsets.set(room.floor_id, roomCenterOffset(
+        sourceRooms.filter(item => item.floor_id === room.floor_id),
+      ));
+    }
+  });
+  return sourceRooms.map(room => {
+    const offset = offsets.get(room.floor_id);
+    return {...room, x: room.x + offset.x, y: room.y + offset.y};
   });
 }
 
@@ -650,7 +677,7 @@ async function endRoomGesture(event) {
 }
 
 async function saveMap() {
-  await api('PUT', '/api/map', {floors, rooms});
+  await api('PUT', '/api/map', {floors, rooms: centeredRooms(rooms)});
 }
 
 async function refreshMap(force = false) {
@@ -707,6 +734,7 @@ function startMapEditing() {
     rooms: rooms.map(room => ({...room, units: [...room.units]})),
     floorId: currentFloorId,
   };
+  rooms = centeredRooms(rooms);
   mapEditing = true;
   renderMap();
 }

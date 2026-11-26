@@ -798,6 +798,60 @@ test('floors have separate rooms and can be added, renamed, and deleted', async 
   assert.deepEqual(savedMap.rooms.map(room => room.id), ['r1']);
 });
 
+test('map view and editing center each floor without saving changes on cancel', async t => {
+  const {window, document, requests} = await setup(t, {
+    view: 'map',
+    floors: [{id: 'ground-floor', name: 'Ground floor'}, {id: 'upstairs', name: 'Upstairs'}],
+    rooms: [
+      {id: 'r1', name: 'Hall', x: 10, y: 5, w: 20, h: 30, units: []},
+      {id: 'r2', name: 'Kitchen', x: 40, y: 15, w: 30, h: 25, units: []},
+      {id: 'r3', floor_id: 'upstairs', name: 'Office', x: 80, y: 60, w: 20, h: 30, units: []},
+    ],
+  });
+  assert.equal(document.querySelector('.map-layout').style.transform, 'translate(10%, 27.5%)');
+  assert.equal(document.querySelector('[data-room="r1"]').style.left, '10%');
+  const floor = document.getElementById('floor-select');
+  floor.value = 'upstairs';
+  floor.dispatchEvent(new window.Event('change', {bubbles: true}));
+  assert.equal(document.querySelector('.map-layout').style.transform, 'translate(-40%, -25%)');
+  document.getElementById('edit-map').click();
+  assert.equal(document.querySelector('.map-layout').style.transform, '');
+  assert.equal(document.querySelector('[data-room="r3"]').style.left, '40%');
+  assert.equal(document.querySelector('[data-room="r3"]').style.top, '35%');
+  document.getElementById('cancel-map-edit').click();
+  assert.equal(document.querySelector('.map-layout').style.transform, 'translate(-40%, -25%)');
+  assert.equal(requests.some(request => request.url === '/api/map' && request.method === 'PUT'), false);
+});
+
+test('editing stays stable while dragging and centers rooms after saving', async t => {
+  const {window, document, requests} = await setup(t, {
+    view: 'map',
+    rooms: [
+      {id: 'r1', name: 'Hall', x: 0, y: 0, w: 20, h: 20, units: []},
+      {id: 'r2', name: 'Kitchen', x: 40, y: 0, w: 20, h: 20, units: []},
+    ],
+  });
+  document.getElementById('edit-map').click();
+  const layout = document.querySelector('.map-layout');
+  layout.getBoundingClientRect = () => ({width: 100, height: 100});
+  const room = document.querySelector('[data-room="r1"]');
+  assert.equal(room.style.left, '20%');
+  room.dispatchEvent(new window.MouseEvent('pointerdown', {
+    bubbles: true, cancelable: true, clientX: 0, clientY: 0,
+  }));
+  window.dispatchEvent(new window.MouseEvent('pointermove', {clientX: 10, clientY: 0}));
+  window.dispatchEvent(new window.MouseEvent('pointerup'));
+  assert.equal(room.style.left, '30%');
+  assert.equal(document.querySelector('.map-layout'), layout);
+  document.getElementById('done-map-edit').click();
+  await settle();
+  const saved = requests.find(request => request.url === '/api/map' && request.method === 'PUT').body.rooms;
+  assert.deepEqual(saved.map(item => [item.x, item.y]), [[25, 40], [55, 40]]);
+  document.getElementById('edit-map').click();
+  assert.equal(document.querySelector('[data-room="r1"]').style.left, '25%');
+  assert.equal(document.querySelector('[data-room="r2"]').style.left, '55%');
+});
+
 test('new rooms are placed without overlapping existing rooms', async t => {
   const {document, requests} = await setup(t, {
     view: 'map',
@@ -813,10 +867,10 @@ test('new rooms are placed without overlapping existing rooms', async t => {
   await settle();
   const savedRooms = requests.find(request => request.url === '/api/map' && request.method === 'PUT').body.rooms;
   assert.equal(savedRooms.length, 2);
-  assert.deepEqual(
-    {x: savedRooms[1].x, y: savedRooms[1].y, w: savedRooms[1].w, h: savedRooms[1].h},
-    {x: 40, y: 0, w: 30, h: 30},
-  );
+  assert.equal(savedRooms[1].w, 30);
+  assert.equal(savedRooms[1].h, 30);
+  assert.ok(savedRooms[1].x + savedRooms[1].w <= savedRooms[0].x
+    || savedRooms[1].y + savedRooms[1].h <= savedRooms[0].y);
 });
 
 test('rooms cannot be moved or resized into another room', async t => {
@@ -837,7 +891,7 @@ test('rooms cannot be moved or resized into another room', async t => {
   window.dispatchEvent(new window.MouseEvent('pointermove', {clientX: 15, clientY: 0}));
   window.dispatchEvent(new window.MouseEvent('pointerup'));
   await settle();
-  assert.equal(room.style.left, '0%');
+  assert.equal(room.style.left, '15%');
 
   room.querySelector('.room-resize').dispatchEvent(new window.MouseEvent('pointerdown', {
     bubbles: true, cancelable: true, clientX: 0, clientY: 0,
@@ -872,12 +926,12 @@ test('overlap toggle allows rooms to be moved over each other', async t => {
   window.dispatchEvent(new window.MouseEvent('pointermove', {clientX: 15, clientY: 0}));
   window.dispatchEvent(new window.MouseEvent('pointerup'));
   await settle();
-  assert.equal(room.style.left, '15%');
+  assert.equal(room.style.left, '30%');
 
   document.getElementById('done-map-edit').click();
   await settle();
   const savedRooms = requests.find(request => request.url === '/api/map' && request.method === 'PUT').body.rooms;
-  assert.equal(savedRooms[0].x, 15);
+  assert.equal(savedRooms[1].x - savedRooms[0].x, 25);
 });
 
 test('canceling map editing discards layout changes', async t => {
@@ -895,7 +949,7 @@ test('canceling map editing discards layout changes', async t => {
   window.dispatchEvent(new window.MouseEvent('pointermove', {clientX: 10, clientY: 0}));
   window.dispatchEvent(new window.MouseEvent('pointerup'));
   await settle();
-  assert.equal(room.style.left, '10%');
+  assert.equal(room.style.left, '45%');
   assert.equal(requests.some(request => request.url === '/api/map' && request.method === 'PUT'), false);
 
   document.getElementById('cancel-map-edit').click();
