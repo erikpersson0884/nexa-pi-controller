@@ -88,8 +88,22 @@ h2 { margin:0 0 16px; font-size:1.2rem; }
 .overlay[hidden] { display:none; }
 .dialog, .sheet { position:relative; width:100%; max-width:400px; padding:22px;
                   border-radius:16px; background:var(--card); box-shadow:var(--shadow); }
+.welcome-dialog { position:fixed; inset:0; width:min(440px, calc(100vw - 32px)); max-width:none;
+                  max-height:calc(100vh - 32px); margin:auto; overflow:auto;
+                  border:0; color:var(--text); }
+.welcome-dialog::backdrop { background:rgba(0,0,0,.65); }
+.welcome-dialog h2 { margin-bottom:8px; }
+.welcome-dialog p { margin:8px 0; }
+.welcome-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:20px; }
+.welcome-actions .primary { margin-left:auto; }
+.welcome-actions button[hidden] { display:none; }
+.welcome-skip-setup { margin-top:8px; padding:8px 0; background:transparent; color:var(--muted); }
+.welcome-skip-setup:hover, .welcome-skip-setup:focus-visible { color:var(--text); }
 .dialog label, .sheet label, .field-label { display:block; margin:14px 0 7px;
                                              color:var(--muted); font-size:.9rem; font-weight:600; }
+.welcome-dialog label.welcome-pair-choice { display:flex; align-items:center; gap:10px;
+                                            color:var(--text); font-weight:400; }
+.welcome-pair-choice input { flex:none; width:20px; height:20px; accent-color:var(--primary); }
 input[type=text], input[type=password], input[type=number], input[type=time], select { width:100%; min-height:46px;
   padding:10px 12px; border:1px solid var(--line); border-radius:10px;
   background:var(--bg); color:var(--text); }

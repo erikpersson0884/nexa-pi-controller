@@ -366,6 +366,15 @@ def account_settings():
     return render_template("account.html")
 
 
+@app.post("/account/welcome/complete")
+def complete_welcome():
+    try:
+        user_store.complete_welcome(USERS_FILE, g.current_user["id"])
+    except user_store.UserNotFoundError:
+        abort(404)
+    return jsonify(ok=True)
+
+
 @app.route("/account/username", methods=["GET", "POST"])
 def change_username():
     username = g.current_user["username"]

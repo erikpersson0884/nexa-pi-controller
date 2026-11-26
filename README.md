@@ -215,6 +215,11 @@ Create a `.env` file in the project directory for required secrets and local ove
 
 ### User accounts
 
+New accounts see an optional welcome wizard after signing in and completing
+any required password change. It offers language, theme, view, and outlet
+pairing choices. Wizard completion is saved per account; language, theme, and
+view remain specific to the browser. Existing accounts are not shown the wizard.
+
 On the first launch, Nexa Control imports `AUTH_USERNAME` and `AUTH_PASSWORD`
 as the initial administrator and stores the password as a hash in
 `nexa_users.sqlite3` under `DATA_DIR`. Keep the account database with the rest

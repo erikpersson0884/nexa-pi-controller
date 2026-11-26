@@ -13,7 +13,60 @@
 <meta name="csrf-token" content="{{ csrf_token() }}">
 <title>Nexa Control</title>
 </head>
-<body>
+<body data-welcome-pending="{{ 'false' if current_user.welcome_completed else 'true' }}">
+<dialog id="welcome-dialog" class="dialog welcome-dialog" aria-labelledby="welcome-title">
+  <h2 id="welcome-title">Welcome to Nexa Control</h2>
+  <section class="welcome-step" data-welcome-step="0">
+    <p>Let's get you started. You can change these settings later.</p>
+    <label for="welcome-language">Language</label>
+    <select id="welcome-language">
+      <option value="en">English</option>
+      <option value="sv">Svenska</option>
+    </select>
+    <p class="muted">Language, theme, and view are saved on this browser.</p>
+  </section>
+  <section class="welcome-step" data-welcome-step="1" hidden>
+    <p>Choose a color theme, or skip to keep your current theme.</p>
+    <label for="welcome-theme">Color theme</label>
+    <select id="welcome-theme">
+      <option value="system">System default</option>
+      <option value="dark">Dark</option>
+      <option value="light">Light</option>
+      <option value="ocean">Ocean</option>
+      <option value="forest">Forest</option>
+      <option value="sage">Sage &amp; cream</option>
+    </select>
+  </section>
+  <section class="welcome-step" data-welcome-step="2" hidden>
+    <p>Choose how to see your outlets, or skip to keep your current view.</p>
+    <label for="welcome-view">Layout</label>
+    <select id="welcome-view">
+      <option value="list">List</option>
+      <option value="grid">Grid</option>
+      <option value="map">Map</option>
+    </select>
+  </section>
+  <section class="welcome-step" data-welcome-step="3" hidden>
+    <p>You're ready to get started.</p>
+    <ul class="instructions">
+      <li>Pair an outlet to control it from the app.</li>
+      <li>Use Timers to schedule outlets or start a countdown.</li>
+      <li>Open Settings to manage your account and preferences.</li>
+    </ul>
+    <label class="welcome-pair-choice">
+      <input id="welcome-pair" type="checkbox">
+      <span>Pair an outlet after setup</span>
+    </label>
+  </section>
+  <p id="welcome-error" class="auth-error" role="alert" hidden></p>
+  <div class="welcome-actions">
+    <button id="welcome-back" class="secondary" type="button" hidden>Back</button>
+    <button id="welcome-skip-step" class="secondary" type="button" hidden>Skip this step</button>
+    <button id="welcome-next" class="primary" type="button">Next</button>
+    <button id="welcome-finish" class="primary" type="button" hidden>Finish</button>
+  </div>
+  <button id="welcome-skip" class="welcome-skip-setup" type="button">Skip setup</button>
+</dialog>
 <main>
   <header class="topbar">
     <div class="topbar-title">

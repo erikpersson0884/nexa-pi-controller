@@ -1461,6 +1461,96 @@ function openPairModal() {
   input.select();
 }
 
+function initializeWelcome() {
+  if (document.body.dataset.welcomePending !== 'true') return;
+  const dialog = document.getElementById('welcome-dialog');
+  const language = document.getElementById('welcome-language');
+  const theme = document.getElementById('welcome-theme');
+  const view = document.getElementById('welcome-view');
+  const error = document.getElementById('welcome-error');
+  const next = document.getElementById('welcome-next');
+  const back = document.getElementById('welcome-back');
+  const skipStep = document.getElementById('welcome-skip-step');
+  const finish = document.getElementById('welcome-finish');
+  const pair = document.getElementById('welcome-pair');
+  let step = 0;
+  language.value = document.documentElement.lang;
+  if ([...theme.options].some(option => option.value === appearance.theme)) {
+    theme.value = appearance.theme;
+  }
+  view.value = viewMode;
+
+  function showStep() {
+    dialog.querySelectorAll('[data-welcome-step]').forEach(section => {
+      section.hidden = Number(section.dataset.welcomeStep) !== step;
+    });
+    back.hidden = step === 0;
+    skipStep.hidden = step !== 1 && step !== 2;
+    next.hidden = step === 3;
+    finish.hidden = step !== 3;
+    error.hidden = true;
+    if (dialog.open) [language, theme, view, finish][step].focus();
+  }
+
+  function preferenceSaved(key, expected) {
+    try {
+      if (localStorage.getItem(key) === expected) {
+        error.hidden = true;
+        return true;
+      }
+    } catch (storageError) {
+      console.error('Could not save welcome preference:', storageError);
+    }
+    error.textContent = 'Could not save your preference on this browser.';
+    error.hidden = false;
+    return false;
+  }
+
+  language.onchange = () => {
+    window.NexaI18n.setLanguage(language.value);
+    preferenceSaved('nexa-language', language.value);
+  };
+  back.onclick = () => { step -= 1; showStep(); };
+  skipStep.onclick = () => { step += 1; showStep(); };
+  next.onclick = () => {
+    if (step === 1) {
+      chooseAppearanceTheme(theme.value);
+      if (!preferenceSaved(APPEARANCE_STORAGE_KEY, JSON.stringify(appearance))) return;
+    } else if (step === 2) {
+      setView(view.value);
+      if (!preferenceSaved('nexa-view', view.value)) return;
+    }
+    step += 1;
+    showStep();
+  };
+  async function complete(pairOutletAfter) {
+    const buttons = dialog.querySelectorAll('button');
+    buttons.forEach(button => { button.disabled = true; });
+    pair.disabled = true;
+    error.hidden = true;
+    try {
+      if (pairOutletAfter) await refresh();
+      const result = await api('POST', '/account/welcome/complete');
+      if (result.ok !== true) throw new Error('Unexpected setup response');
+      document.body.dataset.welcomePending = 'false';
+      dialog.close();
+      if (pairOutletAfter) openPairModal();
+    } catch (completionError) {
+      console.error('Could not complete welcome setup:', completionError);
+      error.textContent = 'Could not complete setup. Please try again.';
+      error.hidden = false;
+    } finally {
+      buttons.forEach(button => { button.disabled = false; });
+      pair.disabled = false;
+    }
+  }
+  document.getElementById('welcome-skip').onclick = () => complete(false);
+  finish.onclick = () => complete(pair.checked);
+  dialog.addEventListener('cancel', event => event.preventDefault());
+  showStep();
+  dialog.showModal();
+}
+
 async function pairOutlet(event) {
   event.preventDefault();
   try {
@@ -1603,6 +1693,7 @@ document.querySelectorAll('.sheet').forEach(sheet => {
 initializeAppearance();
 buildDays();
 renderDevices();
+initializeWelcome();
 if (viewMode === 'map') refreshMap().catch(error => showToast(error.message));
 refresh().catch(error => showToast(error.message));
 setInterval(refreshTimers, 15000);

@@ -15,18 +15,24 @@ const template = fs.readFileSync(path.join(root, 'nexa_pi_controller/templates/i
 
 async function setup(t, {
   devices = [], timers = {schedules: [], countdowns: []}, fail, view, language, rooms = [],
-  floors = [{id: 'ground-floor', name: 'Ground floor'}],
+  floors = [{id: 'ground-floor', name: 'Ground floor'}], welcomePending = false, appearance,
 } = {}) {
   devices = devices.map(device => ({...device}));
-  const dom = new JSDOM(template, {
+  const dom = new JSDOM(template.replace(
+    "{{ 'false' if current_user.welcome_completed else 'true' }}", String(welcomePending),
+  ), {
     url: 'http://localhost/',
     runScripts: 'outside-only',
     beforeParse(window) {
       if (view) window.localStorage.setItem('nexa-view', view);
       if (language) window.localStorage.setItem('nexa-language', language);
+      if (appearance) window.localStorage.setItem('nexa-appearance', JSON.stringify(appearance));
     },
   });
   const {window} = dom;
+  const welcome = window.document.getElementById('welcome-dialog');
+  welcome.showModal = () => { welcome.open = true; };
+  welcome.close = () => { welcome.open = false; };
   const requests = [];
   let mapState = {
     floors,
@@ -44,6 +50,7 @@ async function setup(t, {
     if (url === '/api/devices' && options.method === 'GET') response = devices;
     if (url === '/api/timers' && options.method === 'GET') response = timers;
     if (url === '/api/map' && options.method === 'GET') response = mapState;
+    if (url === '/account/welcome/complete' && options.method === 'POST') response = {ok: true};
     if (url === '/api/map' && options.method === 'PUT') {
       mapState = body;
     }
@@ -104,6 +111,64 @@ test('language preference translates the dashboard and persists on this device',
   document.querySelector('[data-view="list"]').click();
   await settle();
   assert.match(document.getElementById('summary').textContent, /1 outlet · 0 on/);
+});
+
+test('welcome setup saves choices and offers the existing pairing flow', async t => {
+  const {window, document, requests} = await setup(t, {welcomePending: true});
+  const dialog = document.getElementById('welcome-dialog');
+  assert.equal(dialog.open, true);
+  const language = document.getElementById('welcome-language');
+  language.value = 'sv';
+  language.dispatchEvent(new window.Event('change', {bubbles: true}));
+  assert.equal(document.documentElement.lang, 'sv');
+  assert.equal(document.getElementById('welcome-title').textContent, 'Välkommen till Nexa Control');
+  document.getElementById('welcome-next').click();
+  document.getElementById('welcome-theme').value = 'ocean';
+  document.getElementById('welcome-next').click();
+  assert.equal(JSON.parse(window.localStorage.getItem('nexa-appearance')).theme, 'ocean');
+  document.getElementById('welcome-view').value = 'grid';
+  document.getElementById('welcome-next').click();
+  assert.equal(window.localStorage.getItem('nexa-view'), 'grid');
+  document.getElementById('welcome-pair').checked = true;
+  document.getElementById('welcome-finish').click();
+  await settle();
+  assert.equal(dialog.open, false);
+  assert.equal(document.getElementById('pair-modal').hidden, false);
+  const complete = requests.find(request => request.url === '/account/welcome/complete');
+  assert.equal(complete.method, 'POST');
+  assert.equal(complete.headers['X-CSRFToken'], 'test-csrf');
+});
+
+test('welcome skips preserve existing preferences and completion failures can be retried', async t => {
+  let failCompletion = true;
+  const {window, document} = await setup(t, {
+    welcomePending: true, view: 'grid', appearance: {theme: 'forest'},
+    fail: url => url === '/account/welcome/complete' && failCompletion,
+  });
+  document.getElementById('welcome-next').click();
+  document.getElementById('welcome-skip-step').click();
+  document.getElementById('welcome-skip-step').click();
+  assert.equal(JSON.parse(window.localStorage.getItem('nexa-appearance')).theme, 'forest');
+  assert.equal(window.localStorage.getItem('nexa-view'), 'grid');
+  document.getElementById('welcome-finish').click();
+  await settle();
+  assert.equal(document.getElementById('welcome-dialog').open, true);
+  assert.equal(document.getElementById('welcome-error').hidden, false);
+  failCompletion = false;
+  document.getElementById('welcome-finish').click();
+  await settle();
+  assert.equal(document.getElementById('welcome-dialog').open, false);
+  assert.equal(document.getElementById('pair-modal').hidden, true);
+});
+
+test('welcome can be skipped and is absent for completed accounts', async t => {
+  const pending = await setup(t, {welcomePending: true});
+  pending.document.getElementById('welcome-skip').click();
+  await settle();
+  assert.equal(pending.document.getElementById('welcome-dialog').open, false);
+  assert.equal(pending.requests.filter(request => request.url === '/account/welcome/complete').length, 1);
+  const complete = await setup(t);
+  assert.equal(complete.document.getElementById('welcome-dialog').open, false);
 });
 
 async function settle() {

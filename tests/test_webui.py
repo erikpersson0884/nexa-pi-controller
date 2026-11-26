@@ -153,6 +153,7 @@ class WebUiTestCase(unittest.TestCase):
         self.assertEqual(self.client.get("/").location, "/account/password")
         self.assertEqual(self.client.get("/account").location, "/account/password")
         self.assertEqual(self.client.get("/account/username").location, "/account/password")
+        self.assertEqual(self.client.post("/account/welcome/complete").location, "/account/password")
 
         changed = self.client.post("/account/password", data={
             "new_password": "123456",
@@ -164,6 +165,28 @@ class WebUiTestCase(unittest.TestCase):
             webui.USERS_FILE, operator["id"]
         )
         self.assertFalse(updated["must_change_password"])
+
+    def test_welcome_is_completed_per_account_and_requires_authentication_and_csrf(self):
+        operator = webui.user_store.create_user(
+            webui.USERS_FILE, "operator", "operator-password", "operator",
+            must_change_password=False,
+        )
+        self.assertIn('data-welcome-pending="true"', self.client.get("/").get_data(as_text=True))
+        self.client.application.config["WTF_CSRF_ENABLED"] = True
+        self.assertEqual(self.client.post("/account/welcome/complete").status_code, 400)
+        self.assertFalse(webui.user_store.get_user_by_id(
+            webui.USERS_FILE, self.admin["id"]
+        )["welcome_completed"])
+        self.client.application.config["WTF_CSRF_ENABLED"] = False
+        self.assertEqual(self.client.post("/account/welcome/complete").status_code, 200)
+        self.assertIn('data-welcome-pending="false"', self.client.get("/").get_data(as_text=True))
+        with self.client.session_transaction() as session:
+            session["user_id"] = operator["id"]
+            session["session_version"] = operator["session_version"]
+        self.assertIn('data-welcome-pending="true"', self.client.get("/").get_data(as_text=True))
+        with self.client.session_transaction() as session:
+            session.clear()
+        self.assertTrue(self.client.post("/account/welcome/complete").location.startswith("/login?"))
 
     def test_password_change_has_a_cancel_action(self):
         response = self.client.get("/account/password")

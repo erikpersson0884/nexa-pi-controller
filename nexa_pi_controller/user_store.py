@@ -28,7 +28,7 @@ _initialized_paths = set()
 _initialize_lock = threading.Lock()
 _USER_COLUMNS = (
     "id, username, password_hash, role, is_active, must_change_password, "
-    "session_version, created_at"
+    "session_version, created_at, welcome_completed"
 )
 
 
@@ -57,6 +57,7 @@ def _user_from_row(row):
         "must_change_password": bool(row["must_change_password"]),
         "session_version": row["session_version"],
         "created_at": row["created_at"],
+        "welcome_completed": bool(row["welcome_completed"]),
     }
 
 
@@ -79,7 +80,9 @@ def initialize(database_path, bootstrap_username, bootstrap_password):
                     must_change_password INTEGER NOT NULL DEFAULT 0
                         CHECK (must_change_password IN (0, 1)),
                     session_version INTEGER NOT NULL DEFAULT 0,
-                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    welcome_completed INTEGER NOT NULL DEFAULT 1
+                        CHECK (welcome_completed IN (0, 1))
                 );
                 CREATE TABLE IF NOT EXISTS auth_meta (
                     key TEXT PRIMARY KEY,
@@ -88,6 +91,12 @@ def initialize(database_path, bootstrap_username, bootstrap_password):
                 """
             )
             connection.execute("BEGIN IMMEDIATE")
+            columns = {row["name"] for row in connection.execute("PRAGMA table_info(users)")}
+            if "welcome_completed" not in columns:
+                connection.execute(
+                    "ALTER TABLE users ADD COLUMN welcome_completed INTEGER NOT NULL DEFAULT 1 "
+                    "CHECK (welcome_completed IN (0, 1))"
+                )
             initialized = connection.execute(
                 "SELECT value FROM auth_meta WHERE key = 'bootstrap_complete'"
             ).fetchone()
@@ -103,8 +112,8 @@ def initialize(database_path, bootstrap_username, bootstrap_password):
                         )
                     connection.execute(
                         """
-                        INSERT INTO users (username, password_hash, role)
-                        VALUES (?, ?, 'admin')
+                        INSERT INTO users (username, password_hash, role, welcome_completed)
+                        VALUES (?, ?, 'admin', 0)
                         """,
                         (username, generate_password_hash(bootstrap_password)),
                     )
@@ -159,8 +168,8 @@ def create_user(database_path, username, password, role, *, must_change_password
             cursor = connection.execute(
                 """
                 INSERT INTO users (
-                    username, password_hash, role, must_change_password
-                ) VALUES (?, ?, ?, ?)
+                    username, password_hash, role, must_change_password, welcome_completed
+                ) VALUES (?, ?, ?, ?, 0)
                 """,
                 (username, generate_password_hash(password), role, int(must_change_password)),
             )
@@ -170,6 +179,15 @@ def create_user(database_path, username, password, role, *, must_change_password
             raise DuplicateUsernameError(username) from error
         raise
     return get_user_by_id(database_path, user_id)
+
+
+def complete_welcome(database_path, user_id):
+    with _connect(database_path) as connection:
+        cursor = connection.execute(
+            "UPDATE users SET welcome_completed = 1 WHERE id = ?", (user_id,)
+        )
+        if cursor.rowcount == 0:
+            raise UserNotFoundError(user_id)
 
 
 def set_username(database_path, user_id, username):
