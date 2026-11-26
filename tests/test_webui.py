@@ -69,7 +69,8 @@ class WebUiTestCase(unittest.TestCase):
         self.assertIn('id="pair-name"', html)
         self.assertIn('id="rename-modal"', html)
         self.assertIn('id="remove-modal"', html)
-        self.assertIn('aria-label="Current account"', html)
+        self.assertIn('href="/account" aria-label="Current account"', html)
+        self.assertNotIn('href="/account/password"', html)
         self.assertNotIn("Signed in as", html)
         self.assertIn('rel="manifest"', html)
         self.assertIn('>Pair</button>', html)
@@ -150,6 +151,8 @@ class WebUiTestCase(unittest.TestCase):
         self.assertEqual(login.status_code, 302)
         self.assertEqual(login.location, "/account/password")
         self.assertEqual(self.client.get("/").location, "/account/password")
+        self.assertEqual(self.client.get("/account").location, "/account/password")
+        self.assertEqual(self.client.get("/account/username").location, "/account/password")
 
         changed = self.client.post("/account/password", data={
             "new_password": "123456",
@@ -167,9 +170,9 @@ class WebUiTestCase(unittest.TestCase):
         html = response.get_data(as_text=True)
         self.assertRegex(
             html,
-            r'<a class="settings-back-link" href="/#settings">\s*'
+            r'<a class="settings-back-link" href="/account">\s*'
             r'<span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>'
-            r'\s*Settings\s*</a>',
+            r'\s*Your account\s*</a>',
         )
         self.assertIn('<header class="topbar">', html)
         self.assertIn("<h1>Change password</h1>", html)
@@ -221,6 +224,8 @@ class WebUiTestCase(unittest.TestCase):
             f"/admin/users/{operator['id']}/username", data={"username": " new-name "}
         )
         self.assertEqual(response.status_code, 302)
+        self.assertIn('<p class="username-updated">Username updated.</p>',
+                      self.client.get(response.location).get_data(as_text=True))
         self.assertIsNone(webui.user_store.get_user_by_username(webui.USERS_FILE, "operator"))
         self.assertEqual(
             webui.user_store.get_user_by_id(webui.USERS_FILE, operator["id"])["username"],
@@ -236,11 +241,78 @@ class WebUiTestCase(unittest.TestCase):
             "username": "new-name", "password": "operator-password",
         }).status_code, 302)
 
-        response = self.client.post(
-            f"/admin/users/{self.admin['id']}/username", data={"username": "Admin"}
-        )
+        response = self.client.post("/account/username", data={
+            "username": "Admin", "current_password": "test-password",
+        })
         self.assertEqual(response.status_code, 302)
         self.assertIn("Signed in as Admin", self.client.get("/admin/users").get_data(as_text=True))
+
+    def test_operator_can_change_own_username_and_password_from_account_settings(self):
+        operator = webui.user_store.create_user(
+            webui.USERS_FILE, "operator", "operator-password", "operator",
+            must_change_password=False,
+        )
+        with self.client.session_transaction() as session:
+            session["user_id"] = operator["id"]
+            session["session_version"] = operator["session_version"]
+        html = self.client.get("/account").get_data(as_text=True)
+        self.assertIn('href="/account/username"', html)
+        self.assertIn('href="/account/password"', html)
+        form = self.client.get("/account/username").get_data(as_text=True)
+        self.assertIn('value="operator"', form)
+        self.assertIn('name="current_password"', form)
+
+        for username, password, message in [
+            ("new-operator", "wrong", "Current password is incorrect"),
+            ("bad name", "operator-password", "Username must be"),
+            ("ADMIN", "operator-password", "That username is already in use."),
+        ]:
+            response = self.client.post("/account/username", data={
+                "username": username, "current_password": password,
+            })
+            self.assertEqual(response.status_code, 400)
+            self.assertIn(message, response.get_data(as_text=True))
+            self.assertEqual(webui.user_store.get_user_by_id(
+                webui.USERS_FILE, operator["id"]
+            )["username"], "operator")
+
+        response = self.client.post("/account/username", data={
+            "username": "new-operator", "current_password": "operator-password",
+        }, follow_redirects=True)
+        self.assertIn('<p class="username-updated">Username updated.</p>', response.get_data(as_text=True))
+        self.assertEqual(self.client.get("/").status_code, 200)
+        response = self.client.post("/account/password", data={
+            "current_password": "operator-password", "new_password": "new-password",
+            "confirm_password": "new-password",
+        }, follow_redirects=True)
+        self.assertIn("Password updated.", response.get_data(as_text=True))
+        with self.client.session_transaction() as session:
+            session.clear()
+        self.assertEqual(self.client.post("/login", data={
+            "username": "new-operator", "password": "new-password",
+        }).status_code, 302)
+
+    def test_account_username_requires_login_and_csrf(self):
+        self.client.application.config["WTF_CSRF_ENABLED"] = True
+        self.addCleanup(self.client.application.config.__setitem__, "WTF_CSRF_ENABLED", False)
+        self.assertEqual(self.client.post("/account/username", data={
+            "username": "new-name", "current_password": "test-password",
+        }).status_code, 400)
+        self.client.application.config["WTF_CSRF_ENABLED"] = False
+        with self.client.session_transaction() as session:
+            session.clear()
+        self.assertTrue(self.client.get("/account").location.startswith("/login?"))
+        self.assertTrue(self.client.post("/account/username", data={
+            "username": "new-name", "current_password": "test-password",
+        }).location.startswith("/login?"))
+
+    def test_admin_cannot_bypass_password_check_for_own_username(self):
+        self.client.post(
+            f"/admin/users/{self.admin['id']}/username", data={"username": "new-admin"}
+        )
+        self.assertEqual(webui.user_store.get_user_by_id(
+            webui.USERS_FILE, self.admin["id"]
+        )["username"], "admin")
 
     def test_username_change_rejects_invalid_duplicate_and_unauthorized_requests(self):
         operator = webui.user_store.create_user(
@@ -321,8 +393,9 @@ class WebUiTestCase(unittest.TestCase):
             '<article class="account-panel user-panel user-current-card">', 1
         )[1].split("</article>", 1)[0]
         self.assertIn('<span class="user-role-badge">Admin</span>', current_card)
-        self.assertIn('href="/account/password">Change password', current_card)
-        self.assertIn('data-dialog="rename-user-dialog-1"', current_card)
+        self.assertIn('href="/account">Account settings', current_card)
+        self.assertNotIn("Change password", current_card)
+        self.assertNotIn("Change username", current_card)
         self.assertNotIn("Save role", current_card)
         self.assertNotIn("Deactivate", current_card)
         self.assertNotIn("disabled", current_card)

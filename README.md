@@ -222,8 +222,10 @@ of the persistent data. After this one-time import, changing those environment
 variables does not change account credentials; administrators can manage users
 from **Settings → Users**.
 
-Administrators can create other administrators or operators, change usernames
-(including their own), activate or deactivate accounts, and issue temporary passwords.
+All users can change their own username or password from **Settings → Your
+account**. Changing your username requires your current password.
+Administrators can create other administrators or operators, change their
+usernames, activate or deactivate accounts, and issue temporary passwords.
 Username changes preserve existing sessions; the new username is used at sign-in.
 Passwords must be at
 least 6 characters. Users must choose a new password before accessing the app.

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+    <title>Your account - Nexa Control</title>
+</head>
+<body>
+<main class="account-main">
+    <header class="topbar">
+        <div class="topbar-title">
+            <h1>Your account</h1>
+            <p class="summary user-account-name">{{ current_user.username }}</p>
+        </div>
+    </header>
+    <a class="settings-back-link" href="{{ url_for('index') }}#settings">
+      <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span> Settings
+    </a>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="account-messages" role="status">
+            {% for category, message in messages %}<p{% if category == 'username-updated' %} class="username-updated"{% endif %}>{{ message }}</p>{% endfor %}
+        </div>
+        {% endif %}
+    {% endwith %}
+    <div class="settings-list">
+        <a class="settings-link" href="{{ url_for('change_username') }}">
+            <span class="settings-link-copy">
+                <span class="settings-link-title">Change username</span>
+                <span class="settings-link-description">Update your sign-in username</span>
+            </span>
+            <span class="settings-link-chevron" aria-hidden="true"><span class="material-symbols-outlined">chevron_right</span></span>
+        </a>
+        <a class="settings-link" href="{{ url_for('change_password') }}">
+            <span class="settings-link-copy">
+                <span class="settings-link-title">Change password</span>
+                <span class="settings-link-description">Update your sign-in password</span>
+            </span>
+            <span class="settings-link-chevron" aria-hidden="true"><span class="material-symbols-outlined">chevron_right</span></span>
+        </a>
+    </div>
+</main>
+<script src="{{ url_for('static', filename='i18n.js') }}"></script>
+</body>
+</html>

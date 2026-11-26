@@ -17,10 +17,10 @@
     <a class="settings-back-link" href="{{ url_for('index') }}#settings">
       <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span> Settings
     </a>
-    {% with messages = get_flashed_messages() %}
+    {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
         <div class="account-messages" role="status">
-            {% for message in messages %}<p>{{ message }}</p>{% endfor %}
+            {% for category, message in messages %}<p{% if category == 'username-updated' %} class="username-updated"{% endif %}>{{ message }}</p>{% endfor %}
         </div>
         {% endif %}
     {% endwith %}
@@ -69,10 +69,7 @@
                 <span class="user-status-dot active" aria-hidden="true"></span>
                 <span>Active</span>
             </div>
-            <div class="user-card-footer">
-                <a href="{{ url_for('change_password') }}">Change password <span aria-hidden="true">→</span></a>
-                <button class="user-dialog-trigger" type="button" data-dialog="rename-user-dialog-{{ user.id }}">Change username</button>
-            </div>
+            <a class="user-account-link" href="{{ url_for('account_settings') }}">Account settings <span aria-hidden="true">→</span></a>
         </article>
         {% else %}
         <article class="account-panel user-panel">
@@ -137,7 +134,6 @@
                 <button class="primary" type="submit" form="reset-password-form-{{ user.id }}">Reset password</button>
             </div>
         </dialog>
-        {% endif %}
         <dialog id="rename-user-dialog-{{ user.id }}" class="dialog account-create-dialog"
                 aria-labelledby="rename-user-title-{{ user.id }}">
             <form method="dialog">
@@ -159,6 +155,7 @@
                 <button class="primary" type="submit" form="rename-user-form-{{ user.id }}">Save username</button>
             </div>
         </dialog>
+        {% endif %}
         {% else %}
         <p class="empty">No accounts found.</p>
         {% endfor %}

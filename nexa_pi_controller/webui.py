@@ -361,6 +361,36 @@ def logout():
     return redirect(url_for("login"))
 
 
+@app.get("/account")
+def account_settings():
+    return render_template("account.html")
+
+
+@app.route("/account/username", methods=["GET", "POST"])
+def change_username():
+    username = g.current_user["username"]
+    if request.method == "GET":
+        return render_template("change_username.html", username=username)
+    username = request.form.get("username", "").strip()
+    password = request.form.get("current_password", "")
+    error = None
+    if not user_store.verify_password(g.current_user, password):
+        error = "Current password is incorrect"
+    elif not re.fullmatch(USERNAME_PATTERN, username):
+        error = "Username must be 3–32 letters, numbers, dots, underscores or hyphens."
+    else:
+        try:
+            user_store.set_username(USERS_FILE, g.current_user["id"], username)
+        except user_store.DuplicateUsernameError:
+            error = "That username is already in use."
+        except user_store.UserNotFoundError:
+            abort(404)
+    if error:
+        return render_template("change_username.html", username=username, error=error), 400
+    flash("Username updated.", "username-updated")
+    return redirect(url_for("account_settings"))
+
+
 @app.route("/account/password", methods=["GET", "POST"])
 def change_password():
     user = g.current_user
@@ -388,7 +418,10 @@ def change_password():
     session.permanent = True
     session["user_id"] = updated["id"]
     session["session_version"] = updated["session_version"]
-    return redirect(url_for("index"))
+    if forced:
+        return redirect(url_for("index"))
+    flash("Password updated.")
+    return redirect(url_for("account_settings"))
 
 
 @app.get("/admin/users")
@@ -439,13 +472,15 @@ def create_account():
 def change_account_username(user_id):
     username = request.form.get("username", "").strip()
     reopen_dialog = False
-    if not re.fullmatch(USERNAME_PATTERN, username):
+    if user_id == g.current_user["id"]:
+        flash("Use your account settings to change your own username.")
+    elif not re.fullmatch(USERNAME_PATTERN, username):
         flash("Username must be 3–32 letters, numbers, dots, underscores or hyphens.")
         reopen_dialog = True
     else:
         try:
             user_store.set_username(USERS_FILE, user_id, username)
-            flash("Username updated.")
+            flash("Username updated.", "username-updated")
         except user_store.DuplicateUsernameError:
             flash("That username is already in use.")
             reopen_dialog = True

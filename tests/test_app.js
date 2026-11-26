@@ -477,7 +477,7 @@ test('settings navigation uses Material Symbols icons', async t => {
     .map(icon => icon.textContent);
   assert.deepEqual(names, [
     'palette', 'chevron_right', 'schedule', 'chevron_right', 'group', 'chevron_right',
-    'key', 'chevron_right', 'logout', 'chevron_right',
+    'logout', 'chevron_right',
   ]);
   assert.equal(document.querySelector('#open-settings .material-symbols-outlined').textContent, 'settings');
   assert.equal(document.querySelector('.settings-back-link .material-symbols-outlined').textContent, 'arrow_back');

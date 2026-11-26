@@ -78,7 +78,7 @@
       </div>
       <div class="settings-group">
         <h2 class="settings-group-title">Account &amp; access</h2>
-        <div class="settings-account" aria-label="Current account">
+        <a class="settings-account" href="{{ url_for('account_settings') }}" aria-label="Current account">
           <span class="settings-account-avatar" aria-hidden="true">{{ current_user.username[:1]|upper }}</span>
           <span class="settings-account-copy">
             <span class="settings-account-name">{{ current_user.username }}</span>
@@ -87,7 +87,8 @@
           <span class="settings-account-role">
             {{ "Administrator" if current_user.role == "admin" else "Operator" }}
           </span>
-        </div>
+          <span class="settings-link-chevron" aria-hidden="true"><span class="material-symbols-outlined">chevron_right</span></span>
+        </a>
         {% if current_user.role == "admin" %}
         <a class="settings-link" href="{{ url_for('admin_users') }}">
           <span class="settings-link-icon" aria-hidden="true"><span class="material-symbols-outlined">group</span></span>
@@ -98,14 +99,6 @@
           <span class="settings-link-chevron" aria-hidden="true"><span class="material-symbols-outlined">chevron_right</span></span>
         </a>
         {% endif %}
-        <a class="settings-link" href="{{ url_for('change_password') }}">
-          <span class="settings-link-icon" aria-hidden="true"><span class="material-symbols-outlined">key</span></span>
-          <span class="settings-link-copy">
-            <span class="settings-link-title">Change password</span>
-            <span class="settings-link-description">Update your sign-in password</span>
-          </span>
-          <span class="settings-link-chevron" aria-hidden="true"><span class="material-symbols-outlined">chevron_right</span></span>
-        </a>
         <form class="settings-logout" method="post" action="{{ url_for('logout') }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button class="settings-link" type="submit">
