@@ -32,13 +32,19 @@ document.querySelectorAll('.user-menu-toggle').forEach(toggle => {
   });
 });
 
-document.querySelectorAll('.user-reset-trigger').forEach(button => {
+document.querySelectorAll('.user-dialog-trigger').forEach(button => {
   button.addEventListener('click', () => {
     closeUserMenus();
     const dialog = document.getElementById(button.dataset.dialog);
     if (dialog && !dialog.open) dialog.showModal();
   });
 });
+
+const renameUserId = new URLSearchParams(window.location.search).get('rename');
+if (renameUserId && /^\d+$/.test(renameUserId)) {
+  const dialog = document.getElementById(`rename-user-dialog-${renameUserId}`);
+  if (dialog && !dialog.open) dialog.showModal();
+}
 
 document.querySelectorAll('.user-role-select').forEach(select => {
   select.addEventListener('change', () => select.form.requestSubmit());

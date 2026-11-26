@@ -207,6 +207,78 @@ class WebUiTestCase(unittest.TestCase):
         self.assertEqual(created["role"], "operator")
         self.assertTrue(created["must_change_password"])
 
+    def test_admin_can_change_usernames_without_disrupting_sessions(self):
+        operator = webui.user_store.create_user(
+            webui.USERS_FILE, "operator", "operator-password", "operator",
+            must_change_password=False,
+        )
+        operator_client = webui.app.test_client()
+        with operator_client.session_transaction() as session:
+            session["user_id"] = operator["id"]
+            session["session_version"] = operator["session_version"]
+
+        response = self.client.post(
+            f"/admin/users/{operator['id']}/username", data={"username": " new-name "}
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertIsNone(webui.user_store.get_user_by_username(webui.USERS_FILE, "operator"))
+        self.assertEqual(
+            webui.user_store.get_user_by_id(webui.USERS_FILE, operator["id"])["username"],
+            "new-name",
+        )
+        self.assertEqual(operator_client.get("/").status_code, 200)
+        with operator_client.session_transaction() as session:
+            session.clear()
+        self.assertEqual(operator_client.post("/login", data={
+            "username": "operator", "password": "operator-password",
+        }).status_code, 401)
+        self.assertEqual(operator_client.post("/login", data={
+            "username": "new-name", "password": "operator-password",
+        }).status_code, 302)
+
+        response = self.client.post(
+            f"/admin/users/{self.admin['id']}/username", data={"username": "Admin"}
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("Signed in as Admin", self.client.get("/admin/users").get_data(as_text=True))
+
+    def test_username_change_rejects_invalid_duplicate_and_unauthorized_requests(self):
+        operator = webui.user_store.create_user(
+            webui.USERS_FILE, "operator", "operator-password", "operator",
+            must_change_password=False,
+        )
+        url = f"/admin/users/{operator['id']}/username"
+        for username, message in [
+            ("bad name", "Username must be"),
+            ("ADMIN", "That username is already in use."),
+        ]:
+            response = self.client.post(url, data={"username": username})
+            self.assertIn(f"rename={operator['id']}", response.location)
+            response = self.client.get(response.location)
+            self.assertIn(message, response.get_data(as_text=True))
+            self.assertEqual(
+                webui.user_store.get_user_by_id(webui.USERS_FILE, operator["id"])["username"],
+                "operator",
+            )
+        response = self.client.post("/admin/users/9999/username", data={"username": "valid-name"})
+        self.assertEqual(response.status_code, 404)
+        with self.client.session_transaction() as session:
+            session["user_id"] = operator["id"]
+            session["session_version"] = operator["session_version"]
+        self.assertEqual(self.client.post(url, data={"username": "new-name"}).status_code, 403)
+
+    def test_username_change_requires_csrf_token(self):
+        self.client.application.config["WTF_CSRF_ENABLED"] = True
+        self.addCleanup(self.client.application.config.__setitem__, "WTF_CSRF_ENABLED", False)
+        response = self.client.post(
+            f"/admin/users/{self.admin['id']}/username", data={"username": "new-name"}
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            webui.user_store.get_user_by_id(webui.USERS_FILE, self.admin["id"])["username"],
+            "admin",
+        )
+
     def test_temporary_password_requires_at_least_six_characters(self):
         response = self.client.post("/admin/users", data={
             "username": "short-password",
@@ -250,6 +322,7 @@ class WebUiTestCase(unittest.TestCase):
         )[1].split("</article>", 1)[0]
         self.assertIn('<span class="user-role-badge">Admin</span>', current_card)
         self.assertIn('href="/account/password">Change password', current_card)
+        self.assertIn('data-dialog="rename-user-dialog-1"', current_card)
         self.assertNotIn("Save role", current_card)
         self.assertNotIn("Deactivate", current_card)
         self.assertNotIn("disabled", current_card)
@@ -265,6 +338,8 @@ class WebUiTestCase(unittest.TestCase):
         self.assertIn("Deactivate account", html)
         self.assertIn('class="user-role-select"', html)
         self.assertIn('id="reset-password-dialog-2"', html)
+        self.assertIn('data-dialog="rename-user-dialog-2"', html)
+        self.assertIn('action="/admin/users/2/username"', html)
 
     def test_account_cards_put_current_user_first_then_inactive_users_last(self):
         webui.user_store.create_user(
@@ -285,7 +360,7 @@ class WebUiTestCase(unittest.TestCase):
 
         response = self.client.get("/admin/users")
         rendered_order = re.findall(
-            r'<article class="account-panel user-panel(?: user-current-card)?">.*?<h3>([^<]+)</h3>',
+            r'<article class="account-panel user-panel(?: user-current-card)?">.*?<h3 class="user-account-name">([^<]+)</h3>',
             response.get_data(as_text=True),
             re.DOTALL,
         )

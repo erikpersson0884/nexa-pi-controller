@@ -900,18 +900,20 @@ test('leaving the timers page by choosing a view shows outlets again', async t =
   assert.equal(document.getElementById('page-title').textContent, 'Nexa Control');
 });
 
-test('user account menu opens reset dialog and submits role changes immediately', t => {
+test('user account actions open dialogs and submit role changes immediately', t => {
   const dom = new JSDOM(`
     <article class="user-panel">
       <div class="user-card-menu">
         <button id="menu-toggle" class="user-menu-toggle" aria-controls="user-menu"
                 aria-expanded="false"></button>
         <div id="user-menu" hidden>
-          <button id="reset-trigger" class="user-reset-trigger" data-dialog="reset-dialog"></button>
+          <button id="reset-trigger" class="user-dialog-trigger" data-dialog="reset-dialog"></button>
+          <button id="rename-trigger" class="user-dialog-trigger" data-dialog="rename-user-dialog-2"></button>
         </div>
       </div>
     </article>
     <dialog id="reset-dialog"></dialog>
+    <dialog id="rename-user-dialog-2"></dialog>
     <form id="role-form"><select class="user-role-select"></select></form>
   `, {runScripts: 'outside-only'});
   const {window} = dom;
@@ -923,6 +925,8 @@ test('user account menu opens reset dialog and submits role changes immediately'
   roleForm.requestSubmit = () => { roleSubmitCount += 1; };
   const resetDialog = document.getElementById('reset-dialog');
   resetDialog.showModal = () => { resetDialog.open = true; };
+  const renameDialog = document.getElementById('rename-user-dialog-2');
+  renameDialog.showModal = () => { renameDialog.open = true; };
 
   const usersScriptPath = path.join(root, 'nexa_pi_controller/static/users.js');
   new vm.Script(fs.readFileSync(usersScriptPath, 'utf8'), {filename: usersScriptPath})
@@ -938,7 +942,35 @@ test('user account menu opens reset dialog and submits role changes immediately'
   assert.equal(menu.hidden, true);
   assert.equal(resetDialog.open, true);
 
+  toggle.click();
+  document.getElementById('rename-trigger').click();
+  assert.equal(menu.hidden, true);
+  assert.equal(renameDialog.open, true);
+
   document.querySelector('.user-role-select')
     .dispatchEvent(new window.Event('change', {bubbles: true}));
   assert.equal(roleSubmitCount, 1);
+});
+
+test('username dialog reopens after a validation error', t => {
+  const dom = new JSDOM('<dialog id="rename-user-dialog-2"></dialog>', {
+    url: 'http://localhost/admin/users?rename=2', runScripts: 'outside-only',
+  });
+  t.after(() => dom.window.close());
+  const dialog = dom.window.document.getElementById('rename-user-dialog-2');
+  dialog.showModal = () => { dialog.open = true; };
+  const usersScriptPath = path.join(root, 'nexa_pi_controller/static/users.js');
+  new vm.Script(fs.readFileSync(usersScriptPath, 'utf8'), {filename: usersScriptPath})
+    .runInContext(dom.getInternalVMContext());
+  assert.equal(dialog.open, true);
+});
+
+test('usernames are not translated', t => {
+  const dom = new JSDOM('<h3 class="user-account-name">Off</h3>', {
+    url: 'http://localhost/', runScripts: 'outside-only',
+    beforeParse(window) { window.localStorage.setItem('nexa-language', 'sv'); },
+  });
+  t.after(() => dom.window.close());
+  i18nScript.runInContext(dom.getInternalVMContext());
+  assert.equal(dom.window.document.querySelector('h3').textContent, 'Off');
 });

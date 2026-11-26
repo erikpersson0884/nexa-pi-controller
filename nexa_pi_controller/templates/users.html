@@ -60,7 +60,7 @@
         <article class="account-panel user-panel user-current-card">
             <div class="user-card-top">
                 <div class="user-current-identity">
-                    <h3>{{ user.username }}</h3>
+                    <h3 class="user-account-name">{{ user.username }}</h3>
                     <span class="user-you">You</span>
                 </div>
                 <span class="user-role-badge">Admin</span>
@@ -71,13 +71,14 @@
             </div>
             <div class="user-card-footer">
                 <a href="{{ url_for('change_password') }}">Change password <span aria-hidden="true">→</span></a>
+                <button class="user-dialog-trigger" type="button" data-dialog="rename-user-dialog-{{ user.id }}">Change username</button>
             </div>
         </article>
         {% else %}
         <article class="account-panel user-panel">
             <div class="user-card-top">
                 <div class="user-card-information">
-                    <h3>{{ user.username }}</h3>
+                    <h3 class="user-account-name">{{ user.username }}</h3>
                     <div class="user-status-line">
                         <span class="user-status-dot {{ 'active' if user.is_active else 'inactive' }}" aria-hidden="true"></span>
                         <span>{{ "Active" if user.is_active else "Inactive" }}</span>
@@ -90,7 +91,9 @@
                     <button class="user-menu-toggle" type="button" aria-label="More actions for {{ user.username }}"
                             aria-expanded="false" aria-controls="user-menu-{{ user.id }}">⋮</button>
                     <div id="user-menu-{{ user.id }}" class="user-overflow-menu" hidden>
-                        <button class="user-menu-action user-reset-trigger" type="button"
+                        <button class="user-menu-action user-dialog-trigger" type="button"
+                                data-dialog="rename-user-dialog-{{ user.id }}">Change username</button>
+                        <button class="user-menu-action user-dialog-trigger" type="button"
                                 data-dialog="reset-password-dialog-{{ user.id }}">Reset password</button>
                         <button class="user-menu-action {{ 'danger' if user.is_active else '' }}" type="submit"
                                 form="user-status-form-{{ user.id }}">
@@ -135,6 +138,27 @@
             </div>
         </dialog>
         {% endif %}
+        <dialog id="rename-user-dialog-{{ user.id }}" class="dialog account-create-dialog"
+                aria-labelledby="rename-user-title-{{ user.id }}">
+            <form method="dialog">
+                <button class="close-button" type="submit" aria-label="Close dialog">×</button>
+            </form>
+            <h2 id="rename-user-title-{{ user.id }}">Change username</h2>
+            <form id="rename-user-form-{{ user.id }}" method="post"
+                  action="{{ url_for('change_account_username', user_id=user.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <label for="rename-username-{{ user.id }}">Username</label>
+                <input id="rename-username-{{ user.id }}" name="username" type="text"
+                       value="{{ user.username }}" minlength="3" maxlength="32"
+                       pattern="[A-Za-z0-9][A-Za-z0-9._\-]{2,31}" autocomplete="off" required>
+            </form>
+            <div class="account-create-actions">
+                <form method="dialog">
+                    <button class="secondary" type="submit">Cancel</button>
+                </form>
+                <button class="primary" type="submit" form="rename-user-form-{{ user.id }}">Save username</button>
+            </div>
+        </dialog>
         {% else %}
         <p class="empty">No accounts found.</p>
         {% endfor %}

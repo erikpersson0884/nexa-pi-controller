@@ -141,6 +141,11 @@
     'Sign in': 'Logga in',
     'Sign in to control your outlets.': 'Logga in för att styra dina uttag.',
     'Username': 'Användarnamn',
+    'Change username': 'Byt användarnamn',
+    'Save username': 'Spara användarnamn',
+    'Username updated.': 'Användarnamnet har uppdaterats.',
+    'That username is already in use.': 'Det användarnamnet används redan.',
+    'Username must be 3–32 letters, numbers, dots, underscores or hyphens.': 'Användarnamnet måste vara 3–32 tecken med bokstäver, siffror, punkter, understreck eller bindestreck.',
     'Password': 'Lösenord',
     'User management': 'Användarhantering',
     'Accounts': 'Konton',
@@ -186,7 +191,7 @@
   );
   const userTextClasses = [
     'outlet-name', 'tile-name', 'room-name', 'room-outlet-name',
-    'chip-label', 'settings-account-name',
+    'chip-label', 'settings-account-name', 'user-account-name',
   ];
   const originalText = new WeakMap();
   const originalAttributes = new WeakMap();

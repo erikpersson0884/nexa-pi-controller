@@ -222,8 +222,10 @@ of the persistent data. After this one-time import, changing those environment
 variables does not change account credentials; administrators can manage users
 from **Settings → Users**.
 
-Administrators can create other administrators or operators, activate or
-deactivate accounts, and issue temporary passwords. Passwords must be at
+Administrators can create other administrators or operators, change usernames
+(including their own), activate or deactivate accounts, and issue temporary passwords.
+Username changes preserve existing sessions; the new username is used at sign-in.
+Passwords must be at
 least 6 characters. Users must choose a new password before accessing the app.
 Operators can use the controller but cannot manage accounts. The shared
 `API_KEY` continues to authorize its existing API

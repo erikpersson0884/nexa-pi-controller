@@ -27,6 +27,7 @@ from . import storage
 from . import user_store
 
 logger = logging.getLogger(__name__)
+USERNAME_PATTERN = r"[A-Za-z0-9][A-Za-z0-9._-]{2,31}"
 
 # Re-export configuration and legacy helpers for callers importing webui.
 PORT = config.PORT
@@ -414,7 +415,7 @@ def create_account():
     password = request.form.get("temporary_password", "")
     role = request.form.get("role", "")
     reopen_dialog = False
-    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{2,31}", username):
+    if not re.fullmatch(USERNAME_PATTERN, username):
         flash("Username must be 3–32 letters, numbers, dots, underscores or hyphens.")
         reopen_dialog = True
     elif len(password) < 6:
@@ -431,6 +432,26 @@ def create_account():
             flash("That username is already in use.")
             reopen_dialog = True
     return redirect(url_for("admin_users", create="1" if reopen_dialog else None))
+
+
+@app.post("/admin/users/<int:user_id>/username")
+@admin_required
+def change_account_username(user_id):
+    username = request.form.get("username", "").strip()
+    reopen_dialog = False
+    if not re.fullmatch(USERNAME_PATTERN, username):
+        flash("Username must be 3–32 letters, numbers, dots, underscores or hyphens.")
+        reopen_dialog = True
+    else:
+        try:
+            user_store.set_username(USERS_FILE, user_id, username)
+            flash("Username updated.")
+        except user_store.DuplicateUsernameError:
+            flash("That username is already in use.")
+            reopen_dialog = True
+        except user_store.UserNotFoundError:
+            abort(404)
+    return redirect(url_for("admin_users", rename=user_id if reopen_dialog else None))
 
 
 @app.post("/admin/users/<int:user_id>/role")

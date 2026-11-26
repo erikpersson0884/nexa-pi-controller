@@ -172,6 +172,21 @@ def create_user(database_path, username, password, role, *, must_change_password
     return get_user_by_id(database_path, user_id)
 
 
+def set_username(database_path, user_id, username):
+    try:
+        with _connect(database_path) as connection:
+            cursor = connection.execute(
+                "UPDATE users SET username = ? WHERE id = ?", (username, user_id)
+            )
+            if cursor.rowcount == 0:
+                raise UserNotFoundError(user_id)
+    except sqlite3.IntegrityError as error:
+        if "users.username" in str(error).lower() or "unique" in str(error).lower():
+            raise DuplicateUsernameError(username) from error
+        raise
+    return get_user_by_id(database_path, user_id)
+
+
 def update_user(database_path, user_id, role=None, is_active=None):
     with _connect(database_path) as connection:
         connection.execute("BEGIN IMMEDIATE")
