@@ -21,6 +21,23 @@
       <p id="summary" class="summary">0 outlets · 0 on</p>
     </div>
     <div class="topbar-actions">
+      <div id="language-toggle" class="language-toggle" role="group" aria-label="Language" hidden>
+        <button type="button" data-language="en" aria-label="English" title="English" aria-pressed="true">
+          <svg viewBox="0 0 60 36" aria-hidden="true" focusable="false">
+            <path fill="#012169" d="M0 0h60v36H0z"/>
+            <path stroke="#fff" stroke-width="8" d="M0 0l60 36M60 0L0 36"/>
+            <path stroke="#c8102e" stroke-width="3" d="M0 0l60 36M60 0L0 36"/>
+            <path stroke="#fff" stroke-width="12" d="M30 0v36M0 18h60"/>
+            <path stroke="#c8102e" stroke-width="6" d="M30 0v36M0 18h60"/>
+          </svg>
+        </button>
+        <button type="button" data-language="sv" aria-label="Svenska" title="Svenska" aria-pressed="false">
+          <svg viewBox="0 0 60 36" aria-hidden="true" focusable="false">
+            <path fill="#006aa7" d="M0 0h60v36H0z"/>
+            <path fill="#fecc00" d="M18 0h6v36h-6zM0 15h60v6H0z"/>
+          </svg>
+        </button>
+      </div>
       <button id="all-off" class="secondary" type="button" aria-label="All off; double-press for all on" title="Double-press for all on">
         <span class="material-symbols-outlined" aria-hidden="true">power_settings_new</span> All off
       </button>
@@ -335,6 +352,7 @@
 </div>
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
+<script src="{{ url_for('static', filename='i18n.js') }}"></script>
 <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>

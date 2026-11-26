@@ -898,6 +898,7 @@ function renderDevices() {
   list.hidden = mapView || utilityPage;
   document.getElementById('map-view').hidden = !mapView || utilityPage;
   document.getElementById('settings-page').hidden = !settingsPage;
+  document.getElementById('language-toggle').hidden = !settingsPage;
   document.getElementById('appearance-page').hidden = !appearancePage;
   document.getElementById('timers-page').hidden = !timersPage;
   document.getElementById('open-settings').setAttribute('aria-pressed', String(utilityPage));

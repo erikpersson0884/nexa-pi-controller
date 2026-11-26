@@ -8,18 +8,23 @@ const {JSDOM} = require('jsdom');
 const root = path.join(__dirname, '..');
 const scriptPath = path.join(root, 'nexa_pi_controller/static/app.js');
 const script = new vm.Script(fs.readFileSync(scriptPath, 'utf8'), {filename: scriptPath});
+const i18nPath = path.join(root, 'nexa_pi_controller/static/i18n.js');
+const i18nScript = new vm.Script(fs.readFileSync(i18nPath, 'utf8'), {filename: i18nPath});
 const template = fs.readFileSync(path.join(root, 'nexa_pi_controller/templates/index.html'), 'utf8')
   .replace('{{ csrf_token() }}', 'test-csrf');
 
 async function setup(t, {
-  devices = [], timers = {schedules: [], countdowns: []}, fail, view, rooms = [],
+  devices = [], timers = {schedules: [], countdowns: []}, fail, view, language, rooms = [],
   floors = [{id: 'ground-floor', name: 'Ground floor'}],
 } = {}) {
   devices = devices.map(device => ({...device}));
   const dom = new JSDOM(template, {
     url: 'http://localhost/',
     runScripts: 'outside-only',
-    beforeParse(window) { if (view) window.localStorage.setItem('nexa-view', view); },
+    beforeParse(window) {
+      if (view) window.localStorage.setItem('nexa-view', view);
+      if (language) window.localStorage.setItem('nexa-language', language);
+    },
   });
   const {window} = dom;
   const requests = [];
@@ -50,10 +55,56 @@ async function setup(t, {
     return {ok: true, json: async () => response};
   };
   window.confirm = () => true;
+  i18nScript.runInContext(dom.getInternalVMContext());
   script.runInContext(dom.getInternalVMContext());
   await settle();
   return {window, document: window.document, requests};
 }
+
+test('language preference translates the dashboard and persists on this device', async t => {
+  const {window, document} = await setup(t, {
+    devices: [{unit: 0, name: 'Off', state: false}],
+  });
+  const toggle = document.getElementById('language-toggle');
+  const english = toggle.querySelector('[data-language="en"]');
+  const swedish = toggle.querySelector('[data-language="sv"]');
+  assert.equal(toggle.hidden, true);
+  document.getElementById('open-settings').click();
+  assert.equal(toggle.hidden, false);
+  assert.equal(english.getAttribute('aria-pressed'), 'true');
+  assert.equal(swedish.getAttribute('aria-pressed'), 'false');
+  swedish.querySelector('svg').dispatchEvent(new window.MouseEvent('click', {bubbles: true}));
+  await settle();
+  assert.equal(window.localStorage.getItem('nexa-language'), 'sv');
+  assert.equal(document.documentElement.lang, 'sv');
+  assert.match(document.getElementById('all-off').textContent, /Stäng av alla/);
+  assert.equal(document.querySelector('.settings-group-title').textContent, 'Anpassning');
+  assert.equal(english.getAttribute('aria-pressed'), 'false');
+  assert.equal(swedish.getAttribute('aria-pressed'), 'true');
+  document.querySelector('[data-view="list"]').click();
+  await settle();
+  assert.equal(toggle.hidden, true);
+  assert.equal(document.querySelector('.outlet-name').textContent, 'Off');
+  assert.match(document.getElementById('summary').textContent, /1 uttag · 0 på/);
+
+  const reloaded = await setup(t, {language: window.localStorage.getItem('nexa-language')});
+  assert.equal(reloaded.document.querySelector('[data-language="sv"]').getAttribute('aria-pressed'), 'true');
+  assert.match(reloaded.document.getElementById('all-off').textContent, /Stäng av alla/);
+
+  document.getElementById('open-settings').click();
+  english.click();
+  await settle();
+  assert.equal(window.localStorage.getItem('nexa-language'), 'en');
+  assert.equal(document.documentElement.lang, 'en');
+  assert.match(document.getElementById('all-off').textContent, /All off/);
+  assert.equal(document.querySelector('.settings-group-title').textContent, 'Personalization');
+  assert.equal(english.getAttribute('aria-pressed'), 'true');
+  document.getElementById('settings-appearance-link').click();
+  assert.equal(toggle.hidden, true);
+  document.querySelector('[data-view="list"]').click();
+  await settle();
+  assert.match(document.getElementById('summary').textContent, /1 outlet · 0 on/);
+});
 
 async function settle() {
   for (let i = 0; i < 4; i += 1) await new Promise(resolve => setImmediate(resolve));
