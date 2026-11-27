@@ -16,6 +16,7 @@ const template = fs.readFileSync(path.join(root, 'nexa_pi_controller/templates/i
 async function setup(t, {
   devices = [], timers = {schedules: [], countdowns: []}, fail, view, language, rooms = [],
   floors = [{id: 'ground-floor', name: 'Ground floor'}], welcomePending = false, appearance,
+  footerViews,
 } = {}) {
   devices = devices.map(device => ({...device}));
   const dom = new JSDOM(template.replace(
@@ -27,6 +28,7 @@ async function setup(t, {
       if (view) window.localStorage.setItem('nexa-view', view);
       if (language) window.localStorage.setItem('nexa-language', language);
       if (appearance) window.localStorage.setItem('nexa-appearance', JSON.stringify(appearance));
+      if (footerViews) window.localStorage.setItem('nexa-footer-views', JSON.stringify(footerViews));
     },
   });
   const {window} = dom;
@@ -607,6 +609,33 @@ test('appearance settings apply and save preset and custom palettes', async t =>
   assert.equal(document.body.style.backgroundImage, '');
   document.getElementById('appearance-settings-back').click();
   assert.equal(document.getElementById('settings-page').hidden, false);
+});
+
+test('appearance settings control and persist visible footer views', async t => {
+  const {window, document} = await setup(t, {view: 'grid'});
+  const footerButtons = [...document.querySelectorAll('[data-view]')];
+  assert.deepEqual(footerButtons.map(button => button.hidden), [false, false, false]);
+
+  document.getElementById('open-settings').click();
+  document.getElementById('settings-appearance-link').click();
+  const grid = document.getElementById('footer-view-grid');
+  grid.checked = false;
+  grid.dispatchEvent(new window.Event('change', {bubbles: true}));
+
+  assert.deepEqual(JSON.parse(window.localStorage.getItem('nexa-footer-views')), ['list', 'map']);
+  assert.equal(document.querySelector('[data-view="grid"]').hidden, true);
+  assert.equal(window.localStorage.getItem('nexa-view'), 'list');
+  assert.equal(document.getElementById('appearance-page').hidden, false);
+
+  const reloaded = await setup(t, {
+    view: window.localStorage.getItem('nexa-view'),
+    footerViews: JSON.parse(window.localStorage.getItem('nexa-footer-views')),
+  });
+  assert.deepEqual(
+    [...reloaded.document.querySelectorAll('[data-view]')].map(button => button.hidden),
+    [false, true, false],
+  );
+  assert.equal(reloaded.document.querySelector('[data-view="list"]').getAttribute('aria-pressed'), 'true');
 });
 
 test('All timers page lists timers sorted with tags and adds with no preselection', async t => {

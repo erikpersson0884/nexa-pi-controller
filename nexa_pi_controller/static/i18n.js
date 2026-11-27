@@ -3,6 +3,8 @@
     'Personalization': 'Anpassning',
     'Appearance': 'Utseende',
     'Customize page colors': 'Anpassa sidans färger',
+    'Footer views': 'Vyer i sidfoten',
+    'Choose which layouts appear in the footer.': 'Välj vilka layouter som visas i sidfoten.',
     'Language': 'Språk',
     'Welcome to Nexa Control': 'Välkommen till Nexa Control',
     "Let's get you started. You can change these settings later.": 'Nu sätter vi igång. Du kan ändra inställningarna senare.',

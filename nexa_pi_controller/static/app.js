@@ -29,11 +29,14 @@ let suppressTileClick = false;
 let allOffTimer = null;
 let allCommandInProgress = false;
 let appearance = {theme: 'system', custom: null, customEdited: false, savedThemes: []};
+let footerViews = readFooterViews();
 const MAP_SIZE = 100;
 const MIN_ROOM_SIZE = 10;
 const LONG_PRESS_MS = 500;
 const ALL_OFF_DOUBLE_PRESS_MS = 400;
 const APPEARANCE_STORAGE_KEY = 'nexa-appearance';
+const FOOTER_VIEW_STORAGE_KEY = 'nexa-footer-views';
+const FOOTER_VIEWS = ['list', 'grid', 'map'];
 const APPEARANCE_THEMES = {
   dark: {background: '#121417', cards: '#1c1f24', text: '#f1f3f5', accent: '#15803d'},
   light: {background: '#f4f5f7', cards: '#ffffff', text: '#1c1e21', accent: '#15803d'},
@@ -63,13 +66,32 @@ function readView() {
   } catch (_) { return 'list'; }
 }
 
-function setView(view) {
+function readFooterViews() {
+  try {
+    const savedViews = JSON.parse(localStorage.getItem('nexa-footer-views'));
+    if (!Array.isArray(savedViews)) return ['list', 'grid', 'map'];
+    return ['list', 'grid', 'map'].filter(view => savedViews.includes(view));
+  } catch (_) { return ['list', 'grid', 'map']; }
+}
+
+function setView(view, leaveUtilityPage = true) {
   viewMode = ['grid', 'map'].includes(view) ? view : 'list';
-  if (settingsPage || appearancePage || timersPage) showUtilityPage(null);
+  if (leaveUtilityPage && (settingsPage || appearancePage || timersPage)) showUtilityPage(null);
   try { localStorage.setItem('nexa-view', viewMode); } catch (_) {}
   if (viewMode !== 'map' && mapEditing) cancelMapEditing();
   renderDevices();
   if (viewMode === 'map') refreshMap().catch(error => showToast(error.message));
+}
+
+function updateFooterViews() {
+  footerViews = FOOTER_VIEWS.filter(view =>
+    document.getElementById(`footer-view-${view}`).checked);
+  try { localStorage.setItem(FOOTER_VIEW_STORAGE_KEY, JSON.stringify(footerViews)); } catch (_) {}
+  if (footerViews.length && !footerViews.includes(viewMode)) {
+    setView(footerViews[0], false);
+    return;
+  }
+  renderDevices();
 }
 
 function showUtilityPage(page) {
@@ -944,7 +966,10 @@ function renderDevices() {
   document.getElementById('all-off').hidden = reorderMode || utilityPage;
   document.getElementById('reorder-done').hidden = !reorderMode;
   document.getElementById('view-bar').hidden = reorderMode;
+  const viewSwitch = document.getElementById('view-switch');
+  viewSwitch.style.flex = String(footerViews.length);
   document.querySelectorAll('[data-view]').forEach(button => {
+    button.hidden = !footerViews.includes(button.dataset.view);
     button.setAttribute('aria-pressed', String(!utilityPage && button.dataset.view === viewMode));
   });
   document.getElementById('add-outlet').hidden = reorderMode || utilityPage || grid || mapView;
@@ -1633,6 +1658,11 @@ document.getElementById('appearance-settings-back').onclick = event => {
 };
 document.getElementById('appearance-theme').onchange = event =>
   chooseAppearanceTheme(event.target.value);
+FOOTER_VIEWS.forEach(view => {
+  const checkbox = document.getElementById(`footer-view-${view}`);
+  checkbox.checked = footerViews.includes(view);
+  checkbox.onchange = updateFooterViews;
+});
 ['appearance-background', 'appearance-cards', 'appearance-text', 'appearance-accent']
   .forEach(id => {
     document.getElementById(id).oninput = updateCustomAppearance;
