@@ -38,18 +38,6 @@ const ALL_OFF_DOUBLE_PRESS_MS = 400;
 const APPEARANCE_STORAGE_KEY = 'nexa-appearance';
 const FOOTER_VIEW_STORAGE_KEY = 'nexa-footer-views';
 const FOOTER_VIEWS = ['list', 'grid', 'map', 'tools'];
-const ICONS = {
-  power: [['path', {d: 'M18.36 6.64a9 9 0 1 1-12.73 0'}], ['path', {d: 'M12 2v10'}]],
-  clock: [['circle', {cx: 12, cy: 12, r: 10}], ['polyline', {points: '12 6 12 12 16 14'}]],
-  list: [['path', {d: 'M4 6h16M4 12h16M4 18h16'}]],
-  grid: [['rect', {x: 4, y: 4, width: 6, height: 6, rx: 1}], ['rect', {x: 14, y: 4, width: 6, height: 6, rx: 1}],
-    ['rect', {x: 4, y: 14, width: 6, height: 6, rx: 1}], ['rect', {x: 14, y: 14, width: 6, height: 6, rx: 1}]],
-  map: [['path', {d: 'M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z'}], ['path', {d: 'M9 4v14M15 6v14'}]],
-  tools: [['path', {d: 'M14 6a5 5 0 0 0-6 6L3 17l4 4 5-5a5 5 0 0 0 6-6l-3 3-4-4z'}]],
-  receiver: [['path', {d: 'M12 19v-5M8 21h8M9 11a4 4 0 0 1 6 0M6 8a8 8 0 0 1 12 0M3 5a12 12 0 0 1 18 0'}], ['circle', {cx: 12, cy: 13, r: 1}]],
-  check: [['polyline', {points: '20 6 9 17 4 12'}]],
-};
-
 function readView() {
   try {
     const view = localStorage.getItem('nexa-view');
@@ -215,26 +203,6 @@ function resetAppearance() {
   saveAppearance();
 }
 
-function icon(name, size = 20) {
-  const ns = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(ns, 'svg');
-  svg.setAttribute('viewBox', '0 0 24 24');
-  svg.setAttribute('width', size);
-  svg.setAttribute('height', size);
-  svg.setAttribute('fill', 'none');
-  svg.setAttribute('stroke', 'currentColor');
-  svg.setAttribute('stroke-width', 2);
-  svg.setAttribute('stroke-linecap', 'round');
-  svg.setAttribute('stroke-linejoin', 'round');
-  svg.setAttribute('aria-hidden', 'true');
-  ICONS[name].forEach(([tag, attrs]) => {
-    const shape = document.createElementNS(ns, tag);
-    Object.entries(attrs).forEach(([key, value]) => shape.setAttribute(key, value));
-    svg.append(shape);
-  });
-  return svg;
-}
-
 function materialIcon(name, size = 24) {
   const span = document.createElement('span');
   span.className = 'material-symbols-outlined';
@@ -335,12 +303,12 @@ function renderGrid(list) {
     tile.setAttribute('aria-label', device.name);
     const top = el('div', 'tile-top');
     const badge = el('span', 'tile-icon');
-    badge.append(icon('power', 20));
+    badge.append(materialIcon('power_settings_new', 20));
     top.append(badge);
     const next = nextTimerTime(device.unit);
     if (next) {
       const nextTimer = el('span', 'tile-next');
-      nextTimer.append(icon('clock', 14), document.createTextNode(next));
+      nextTimer.append(materialIcon('schedule', 14), document.createTextNode(next));
       top.append(nextTimer);
     }
     const bottom = el('div', 'tile-bottom');
@@ -792,7 +760,7 @@ function openRoomModal(room) {
     const chip = el('button', 'outlet-chip');
     chip.type = 'button';
     const check = el('span', 'chip-check');
-    check.append(icon('check', 16));
+    check.append(materialIcon('check', 16));
     chip.append(check, el('span', 'chip-label', device.name));
     const update = () => {
       const selected = roomUnits.includes(device.unit);
@@ -1321,7 +1289,7 @@ function renderOutletChips() {
     const chip = el('button', 'outlet-chip');
     chip.type = 'button';
     const check = el('span', 'chip-check');
-    check.append(icon('check', 16));
+    check.append(materialIcon('check', 16));
     chip.append(check, el('span', 'chip-label', label));
     chip.onclick = onclick;
     box.append(chip);
@@ -1598,9 +1566,9 @@ window.addEventListener('hashchange', () => {
 document.querySelectorAll('[data-view]').forEach(button => {
   button.onclick = () => setView(button.dataset.view);
 });
-document.querySelector('[data-view="list"]').append(icon('list', 22));
-document.querySelector('[data-view="grid"]').append(icon('grid', 22));
-document.querySelector('[data-view="map"]').append(icon('map', 22));
+document.querySelector('[data-view="list"]').append(materialIcon('view_list', 22));
+document.querySelector('[data-view="grid"]').append(materialIcon('grid_view', 22));
+document.querySelector('[data-view="map"]').append(materialIcon('map', 22));
 document.getElementById('edit-map').onclick = toggleMapEditing;
 document.getElementById('cancel-map-edit').onclick = cancelMapEditing;
 document.getElementById('done-map-edit').onclick = toggleMapEditing;
@@ -1618,8 +1586,8 @@ document.getElementById('floor-form').onsubmit = saveFloor;
 document.getElementById('room-form').onsubmit = saveRoom;
 document.getElementById('delete-room').onclick = deleteRoom;
 document.getElementById('settings-icon').append(materialIcon('settings', 20));
-document.getElementById('tools-icon').append(icon('tools', 22));
-document.getElementById('tools-receiver-icon').append(icon('receiver', 22));
+document.getElementById('tools-icon').append(materialIcon('build', 22));
+document.getElementById('tools-receiver-icon').append(materialIcon('sensors', 22));
 document.getElementById('settings-appearance-icon').append(materialIcon('palette', 20));
 document.getElementById('settings-timers-icon').append(materialIcon('schedule', 20));
 document.getElementById('reorder-done').onclick = () => leaveReorderMode(true);

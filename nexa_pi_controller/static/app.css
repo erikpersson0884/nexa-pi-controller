@@ -329,7 +329,7 @@ button.settings-link .settings-link-chevron { display:inline-flex; }
 .view-bar .view-switch button { flex:1; width:auto; height:60px; min-height:60px; border-radius:0;
                                 flex-direction:column; gap:2px; background:transparent; color:var(--muted); }
 .view-bar .view-switch button[hidden] { display:none; }
-.view-bar .view-switch button span { order:2; font-size:.75rem; }
+.view-bar .view-switch button > span:not(.material-symbols-outlined) { order:2; font-size:.75rem; }
 .view-bar .view-switch button[aria-pressed="true"] { background:transparent; color:var(--on); }
 
 .view-bar .settings-button { flex:1; position:relative; display:flex; flex-direction:column; align-items:center;

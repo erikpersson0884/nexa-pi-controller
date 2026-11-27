@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nexa-control-v6';
+const CACHE_NAME = 'nexa-control-v7';
 const APP_SHELL = [
   '/static/app.css',
   '/static/app.js',

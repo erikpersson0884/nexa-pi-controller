@@ -456,6 +456,7 @@ test('applies the stored grid view on load and renders tiles', async t => {
   assert.equal(tiles[0].getAttribute('role'), 'switch');
   assert.equal(tiles[0].getAttribute('aria-checked'), 'true');
   assert.equal(tiles[0].getAttribute('aria-label'), 'Lamp');
+  assert.equal(tiles[0].querySelector('.tile-icon .material-symbols-outlined').textContent, 'power_settings_new');
   assert.equal(tiles[0].querySelector('.tile-status').textContent, 'On · sent 21:04');
   assert.equal(tiles[1].querySelector('.tile-status').textContent, 'Off');
   assert.ok(document.querySelector('.tile-add'));
@@ -515,7 +516,9 @@ test('tile shows the next timer time and the bottom bar counts timers', async t 
       {id: 's2', units: [3], action: 'on', time: '06:00', days: [0, 1, 2, 3, 4, 5, 6], enabled: false},
     ]},
   });
-  assert.equal(document.querySelector('[data-unit="1"] .tile-next').textContent, '22:00');
+  const next = document.querySelector('[data-unit="1"] .tile-next');
+  assert.equal(next.querySelector('.material-symbols-outlined').textContent, 'schedule');
+  assert.equal(next.lastChild.textContent, '22:00');
   assert.equal(document.querySelector('[data-unit="3"] .tile-next'), null);
 });
 
@@ -552,6 +555,10 @@ test('settings navigation uses Material Symbols icons', async t => {
     'logout', 'chevron_right',
   ]);
   assert.equal(document.querySelector('#open-settings .material-symbols-outlined').textContent, 'settings');
+  assert.equal(document.querySelector('#open-tools .material-symbols-outlined').textContent, 'build');
+  assert.equal(document.querySelector('#tools-receiver-icon .material-symbols-outlined').textContent, 'sensors');
+  assert.deepEqual([...document.querySelectorAll('#view-switch .material-symbols-outlined')]
+    .map(icon => icon.textContent), ['view_list', 'grid_view', 'map']);
   assert.equal(document.querySelector('.settings-back-link .material-symbols-outlined').textContent, 'arrow_back');
 });
 
