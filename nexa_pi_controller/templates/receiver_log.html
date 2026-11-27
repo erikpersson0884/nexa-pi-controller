@@ -15,6 +15,9 @@
             <p class="summary">Latest 50 received commands · Refreshes every 5 seconds</p>
         </div>
     </header>
+    <a class="settings-back-link" href="{{ url_for('index') }}#tools">
+      <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span> Tools
+    </a>
     <section aria-label="Received commands">
         {% for command in commands %}
         <article class="account-panel receiver-entry">
@@ -35,5 +38,6 @@
     </section>
 </main>
 <script src="{{ url_for('static', filename='i18n.js') }}"></script>
+<script src="{{ url_for('static', filename='theme.js') }}" data-autoload="true"></script>
 </body>
 </html>

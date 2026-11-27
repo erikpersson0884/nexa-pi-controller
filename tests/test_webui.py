@@ -693,7 +693,8 @@ class WebUiTestCase(unittest.TestCase):
         self.assertIn("<dt>Unit</dt><dd>8</dd>", html)
         self.assertIn("<dt>Raw unit</dt><dd>15</dd>", html)
         self.assertLess(html.index("<dd>456</dd>"), html.index("<dd>123</dd>"))
-        self.assertNotIn("/receiver-log", self.client.get("/").get_data(as_text=True))
+        self.assertIn('href="/receiver-log"', self.client.get("/").get_data(as_text=True))
+        self.assertIn('href="/#tools"', html)
 
     def test_receiver_log_page_requires_login(self):
         with self.client.session_transaction() as session:

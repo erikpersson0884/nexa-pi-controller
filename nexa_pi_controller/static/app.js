@@ -25,6 +25,7 @@ let timerSheetOpen = false;
 let settingsPage = location.hash === '#settings';
 let appearancePage = location.hash === '#appearance';
 let timersPage = location.hash === '#timers';
+let toolsPage = location.hash === '#tools';
 let suppressTileClick = false;
 let allOffTimer = null;
 let allCommandInProgress = false;
@@ -36,7 +37,7 @@ const LONG_PRESS_MS = 500;
 const ALL_OFF_DOUBLE_PRESS_MS = 400;
 const APPEARANCE_STORAGE_KEY = 'nexa-appearance';
 const FOOTER_VIEW_STORAGE_KEY = 'nexa-footer-views';
-const FOOTER_VIEWS = ['list', 'grid', 'map'];
+const FOOTER_VIEWS = ['list', 'grid', 'map', 'tools'];
 const ICONS = {
   power: [['path', {d: 'M18.36 6.64a9 9 0 1 1-12.73 0'}], ['path', {d: 'M12 2v10'}]],
   clock: [['circle', {cx: 12, cy: 12, r: 10}], ['polyline', {points: '12 6 12 12 16 14'}]],
@@ -44,6 +45,8 @@ const ICONS = {
   grid: [['rect', {x: 4, y: 4, width: 6, height: 6, rx: 1}], ['rect', {x: 14, y: 4, width: 6, height: 6, rx: 1}],
     ['rect', {x: 4, y: 14, width: 6, height: 6, rx: 1}], ['rect', {x: 14, y: 14, width: 6, height: 6, rx: 1}]],
   map: [['path', {d: 'M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z'}], ['path', {d: 'M9 4v14M15 6v14'}]],
+  tools: [['path', {d: 'M14 6a5 5 0 0 0-6 6L3 17l4 4 5-5a5 5 0 0 0 6-6l-3 3-4-4z'}]],
+  receiver: [['path', {d: 'M12 19v-5M8 21h8M9 11a4 4 0 0 1 6 0M6 8a8 8 0 0 1 12 0M3 5a12 12 0 0 1 18 0'}], ['circle', {cx: 12, cy: 13, r: 1}]],
   check: [['polyline', {points: '20 6 9 17 4 12'}]],
 };
 
@@ -58,13 +61,13 @@ function readFooterViews() {
   try {
     const savedViews = JSON.parse(localStorage.getItem('nexa-footer-views'));
     if (!Array.isArray(savedViews)) return ['list', 'grid', 'map'];
-    return ['list', 'grid', 'map'].filter(view => savedViews.includes(view));
+    return ['list', 'grid', 'map', 'tools'].filter(view => savedViews.includes(view));
   } catch (_) { return ['list', 'grid', 'map']; }
 }
 
 function setView(view, leaveUtilityPage = true) {
   viewMode = ['grid', 'map'].includes(view) ? view : 'list';
-  if (leaveUtilityPage && (settingsPage || appearancePage || timersPage)) showUtilityPage(null);
+  if (leaveUtilityPage && (settingsPage || appearancePage || timersPage || toolsPage)) showUtilityPage(null);
   try { localStorage.setItem('nexa-view', viewMode); } catch (_) {}
   if (viewMode !== 'map' && mapEditing) cancelMapEditing();
   renderDevices();
@@ -74,9 +77,15 @@ function setView(view, leaveUtilityPage = true) {
 function updateFooterViews() {
   footerViews = FOOTER_VIEWS.filter(view =>
     document.getElementById(`footer-view-${view}`).checked);
-  try { localStorage.setItem(FOOTER_VIEW_STORAGE_KEY, JSON.stringify(footerViews)); } catch (_) {}
-  if (footerViews.length && !footerViews.includes(viewMode)) {
-    setView(footerViews[0], false);
+  try {
+    localStorage.setItem(FOOTER_VIEW_STORAGE_KEY, JSON.stringify(footerViews));
+  } catch (error) {
+    console.error('Could not save footer views:', error);
+    showToast('Could not save your preference on this browser.');
+  }
+  const layouts = footerViews.filter(view => view !== 'tools');
+  if (layouts.length && !layouts.includes(viewMode)) {
+    setView(layouts[0], false);
     return;
   }
   renderDevices();
@@ -86,6 +95,7 @@ function showUtilityPage(page) {
   settingsPage = page === 'settings';
   appearancePage = page === 'appearance';
   timersPage = page === 'timers';
+  toolsPage = page === 'tools';
   const hash = page ? `#${page}` : '';
   if (location.hash !== hash) {
     if (hash) location.hash = hash;
@@ -846,7 +856,7 @@ function attachLongPress(node, onLongPress) {
 function renderDevices() {
   const list = document.getElementById('outlet-list');
   while (list.firstChild) list.removeChild(list.firstChild);
-  const utilityPage = settingsPage || appearancePage || timersPage;
+  const utilityPage = settingsPage || appearancePage || timersPage || toolsPage;
   const grid = viewMode === 'grid' && !reorderMode;
   const mapView = viewMode === 'map' && !reorderMode && !utilityPage;
   list.hidden = mapView || utilityPage;
@@ -855,29 +865,32 @@ function renderDevices() {
   document.getElementById('language-toggle').hidden = !settingsPage;
   document.getElementById('appearance-page').hidden = !appearancePage;
   document.getElementById('timers-page').hidden = !timersPage;
-  document.getElementById('open-settings').setAttribute('aria-pressed', String(utilityPage));
+  document.getElementById('tools-page').hidden = !toolsPage;
+  document.getElementById('open-settings').setAttribute('aria-pressed', String(utilityPage && !toolsPage));
+  document.getElementById('open-tools').setAttribute('aria-pressed', String(toolsPage));
   list.classList.toggle('grid', grid);
   document.body.classList.toggle('view-grid', grid);
   const onCount = devices.filter(d => d.state === true).length;
   document.getElementById('page-title').textContent = reorderMode
-    ? 'Reorder' : settingsPage ? 'Settings' : appearancePage ? 'Appearance'
+    ? 'Reorder' : settingsPage ? 'Settings' : appearancePage ? 'Appearance' : toolsPage ? 'Tools'
       : 'Nexa Control';
   document.getElementById('summary').textContent = reorderMode
     ? 'Drag the handle or use the arrows'
     : settingsPage ? 'Manage Nexa Control'
-      : appearancePage ? 'Customize page colors'
+      : appearancePage ? 'Customize page colors' : toolsPage ? 'View received commands'
         : `${devices.length} outlet${devices.length === 1 ? '' : 's'} · ${onCount} on`;
   document.getElementById('all-off').hidden = reorderMode || utilityPage;
   document.getElementById('reorder-done').hidden = !reorderMode;
   document.getElementById('view-bar').hidden = reorderMode;
   const viewSwitch = document.getElementById('view-switch');
-  viewSwitch.style.flex = String(footerViews.length);
+  viewSwitch.style.flex = String(footerViews.filter(view => view !== 'tools').length);
+  document.getElementById('open-tools').hidden = !footerViews.includes('tools');
   document.querySelectorAll('[data-view]').forEach(button => {
     button.hidden = !footerViews.includes(button.dataset.view);
     button.setAttribute('aria-pressed', String(!utilityPage && button.dataset.view === viewMode));
   });
   document.getElementById('add-outlet').hidden = reorderMode || utilityPage || grid || mapView;
-  if (settingsPage || appearancePage) {
+  if (settingsPage || appearancePage || toolsPage) {
     return;
   }
   if (timersPage) {
@@ -1544,6 +1557,7 @@ async function refresh() {
 document.getElementById('add-outlet').onclick = openPairModal;
 document.getElementById('all-off').onclick = allOff;
 document.getElementById('open-settings').onclick = () => showUtilityPage('settings');
+document.getElementById('open-tools').onclick = () => showUtilityPage('tools');
 document.getElementById('settings-timers-link').onclick = event => {
   event.preventDefault();
   showUtilityPage('timers');
@@ -1578,6 +1592,7 @@ window.addEventListener('hashchange', () => {
   settingsPage = location.hash === '#settings';
   appearancePage = location.hash === '#appearance';
   timersPage = location.hash === '#timers';
+  toolsPage = location.hash === '#tools';
   renderDevices();
 });
 document.querySelectorAll('[data-view]').forEach(button => {
@@ -1603,6 +1618,8 @@ document.getElementById('floor-form').onsubmit = saveFloor;
 document.getElementById('room-form').onsubmit = saveRoom;
 document.getElementById('delete-room').onclick = deleteRoom;
 document.getElementById('settings-icon').append(materialIcon('settings', 20));
+document.getElementById('tools-icon').append(icon('tools', 22));
+document.getElementById('tools-receiver-icon').append(icon('receiver', 22));
 document.getElementById('settings-appearance-icon').append(materialIcon('palette', 20));
 document.getElementById('settings-timers-icon').append(materialIcon('schedule', 20));
 document.getElementById('reorder-done').onclick = () => leaveReorderMode(true);

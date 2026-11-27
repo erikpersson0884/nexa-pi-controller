@@ -18,13 +18,13 @@ const template = fs.readFileSync(path.join(root, 'nexa_pi_controller/templates/i
 async function setup(t, {
   devices = [], timers = {schedules: [], countdowns: []}, fail, view, language, rooms = [],
   floors = [{id: 'ground-floor', name: 'Ground floor'}], welcomePending = false, appearance,
-  footerViews,
+  footerViews, hash = '',
 } = {}) {
   devices = devices.map(device => ({...device}));
   const dom = new JSDOM(template.replace(
     "{{ 'false' if current_user.welcome_completed else 'true' }}", String(welcomePending),
   ), {
-    url: 'http://localhost/',
+    url: `http://localhost/${hash}`,
     runScripts: 'outside-only',
     beforeParse(window) {
       if (view) window.localStorage.setItem('nexa-view', view);
@@ -526,7 +526,7 @@ test('settings links to the existing timers page', async t => {
   assert.equal(document.getElementById('all-off').hidden, true);
   assert.equal(document.getElementById('settings-timers-link').getAttribute('href'), '#timers');
   assert.deepEqual(
-    [...document.querySelectorAll('.settings-group-title')].map(title => title.textContent),
+    [...document.querySelectorAll('#settings-page .settings-group-title')].map(title => title.textContent),
     ['Personalization', 'Automation', 'Account & access'],
   );
 
@@ -543,7 +543,7 @@ test('settings links to the existing timers page', async t => {
 
 test('settings navigation uses Material Symbols icons', async t => {
   const {document} = await setup(t);
-  const names = [...document.querySelectorAll('.settings-link .material-symbols-outlined')]
+  const names = [...document.querySelectorAll('#settings-page .settings-link .material-symbols-outlined')]
     .map(icon => icon.textContent);
   assert.deepEqual(names, [
     'palette', 'chevron_right', 'schedule', 'chevron_right', 'group', 'chevron_right',
@@ -680,6 +680,68 @@ test('appearance settings control and persist visible footer views', async t => 
     [false, true, false],
   );
   assert.equal(reloaded.document.querySelector('[data-view="list"]').getAttribute('aria-pressed'), 'true');
+});
+
+test('tools can be enabled in the footer and opens the receiver page', async t => {
+  const {window, document} = await setup(t);
+  const button = document.getElementById('open-tools');
+  assert.equal(button.hidden, true);
+  document.getElementById('open-settings').click();
+  document.getElementById('settings-appearance-link').click();
+  const toggle = document.getElementById('footer-view-tools');
+  assert.equal(toggle.checked, false);
+  toggle.checked = true;
+  toggle.dispatchEvent(new window.Event('change', {bubbles: true}));
+  assert.equal(button.hidden, false);
+  assert.deepEqual(JSON.parse(window.localStorage.getItem('nexa-footer-views')),
+    ['list', 'grid', 'map', 'tools']);
+  button.click();
+  assert.equal(window.location.hash, '#tools');
+  assert.equal(document.getElementById('tools-page').hidden, false);
+  assert.equal(document.getElementById('appearance-page').hidden, true);
+  assert.equal(document.getElementById('outlet-list').hidden, true);
+  assert.equal(document.getElementById('page-title').textContent, 'Tools');
+  assert.equal(button.getAttribute('aria-pressed'), 'true');
+  assert.equal(document.getElementById('open-settings').getAttribute('aria-pressed'), 'false');
+  assert.match(document.getElementById('tools-receiver-link').getAttribute('href'), /receiver_log_page/);
+  document.querySelector('[data-view="list"]').click();
+  assert.equal(document.getElementById('tools-page').hidden, true);
+  assert.equal(document.getElementById('outlet-list').hidden, false);
+
+  const reloaded = await setup(t, {
+    footerViews: JSON.parse(window.localStorage.getItem('nexa-footer-views')), hash: '#tools',
+  });
+  assert.equal(reloaded.document.getElementById('open-tools').hidden, false);
+  assert.equal(reloaded.document.getElementById('tools-page').hidden, false);
+});
+
+test('tools can be the only optional footer destination', async t => {
+  const {window, document} = await setup(t, {view: 'map', footerViews: ['tools']});
+  assert.equal(document.getElementById('open-tools').hidden, false);
+  document.getElementById('open-settings').click();
+  document.getElementById('settings-appearance-link').click();
+  const list = document.getElementById('footer-view-list');
+  list.checked = true;
+  list.dispatchEvent(new window.Event('change', {bubbles: true}));
+  assert.equal(window.localStorage.getItem('nexa-view'), 'list');
+  assert.equal(document.getElementById('open-tools').hidden, false);
+  list.checked = false;
+  list.dispatchEvent(new window.Event('change', {bubbles: true}));
+  assert.deepEqual(JSON.parse(window.localStorage.getItem('nexa-footer-views')), ['tools']);
+  assert.equal(window.localStorage.getItem('nexa-view'), 'list');
+  document.getElementById('open-tools').click();
+  assert.equal(document.getElementById('tools-page').hidden, false);
+  assert.equal(document.getElementById('open-settings').hidden, false);
+});
+
+test('tools labels are translated into Swedish', async t => {
+  const {document} = await setup(t, {language: 'sv', footerViews: ['list', 'tools']});
+  document.getElementById('open-tools').click();
+  await settle();
+  assert.equal(document.getElementById('page-title').textContent, 'Verktyg');
+  assert.equal(document.querySelector('#tools-receiver-link .settings-link-title').textContent, 'Mottagare');
+  assert.equal(document.querySelector('#tools-receiver-link .settings-link-description').textContent,
+    'Visa mottagna kommandon');
 });
 
 test('All timers page lists timers sorted with tags and adds with no preselection', async t => {

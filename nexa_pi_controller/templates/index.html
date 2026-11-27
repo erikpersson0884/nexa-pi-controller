@@ -166,6 +166,21 @@
       </div>
     </div>
   </section>
+  <section id="tools-page" hidden>
+    <div class="settings-list">
+      <div class="settings-group">
+        <h2 class="settings-group-title">Tools</h2>
+        <a id="tools-receiver-link" class="settings-link" href="{{ url_for('receiver_log_page') }}">
+          <span id="tools-receiver-icon" class="settings-link-icon" aria-hidden="true"></span>
+          <span class="settings-link-copy">
+            <span class="settings-link-title">Receiver</span>
+            <span class="settings-link-description">View received commands</span>
+          </span>
+          <span class="settings-link-chevron" aria-hidden="true"><span class="material-symbols-outlined">chevron_right</span></span>
+        </a>
+      </div>
+    </div>
+  </section>
   <section id="appearance-page" hidden>
     <a id="appearance-settings-back" class="settings-back-link" href="#settings">
       <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span> Settings
@@ -205,10 +220,11 @@
     <div class="appearance-panel footer-views-panel">
       <fieldset class="appearance-footer-views">
         <legend>Footer views</legend>
-        <p class="appearance-description">Choose which layouts appear in the footer.</p>
+        <p class="appearance-description">Choose which views appear in the footer.</p>
         <label><input id="footer-view-list" type="checkbox" value="list"> List</label>
         <label><input id="footer-view-grid" type="checkbox" value="grid"> Grid</label>
         <label><input id="footer-view-map" type="checkbox" value="map"> Map</label>
+        <label><input id="footer-view-tools" type="checkbox" value="tools"> Tools</label>
       </fieldset>
     </div>
     <div id="save-custom-theme-panel" class="save-theme-panel" hidden>
@@ -252,6 +268,10 @@
     <button type="button" data-view="grid" aria-label="Grid view" aria-pressed="false"><span>Grid</span></button>
     <button type="button" data-view="map" aria-label="Map view" aria-pressed="false"><span>Map</span></button>
   </div>
+  <button id="open-tools" class="settings-button" type="button" aria-label="Tools" aria-pressed="false" hidden>
+    <span id="tools-icon" class="icon-slot"></span>
+    <span>Tools</span>
+  </button>
   <button id="open-settings" class="settings-button" type="button" aria-label="Settings" aria-pressed="false">
     <span id="settings-icon" class="icon-slot"></span>
     <span>Settings</span>
