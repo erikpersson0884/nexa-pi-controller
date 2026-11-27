@@ -193,6 +193,7 @@
     'Account setup required': 'Kontoinställning krävs',
     'Receiver log': 'Mottagningslogg',
     'Latest 50 received commands · Refreshes every 5 seconds': 'De senaste 50 mottagna kommandona · Uppdateras var 5:e sekund',
+    'Latest 50 received commands · Refreshes every 5 seconds, paused while expanded': 'De senaste 50 mottagna kommandona · Uppdateras var 5:e sekund, pausat när en post är öppen',
     'Received commands': 'Mottagna kommandon',
     'All configured outlets': 'Alla konfigurerade uttag',
     'Controller ID': 'Styrenhets-ID',

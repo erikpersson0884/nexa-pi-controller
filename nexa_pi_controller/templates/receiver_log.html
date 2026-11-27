@@ -3,7 +3,6 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta http-equiv="refresh" content="5">
     <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
     <title>Receiver log - Nexa Control</title>
 </head>
@@ -12,7 +11,7 @@
     <header class="topbar">
         <div class="topbar-title">
             <h1>Receiver log</h1>
-            <p class="summary">Latest 50 received commands · Refreshes every 5 seconds</p>
+            <p class="summary">Latest 50 received commands · Refreshes every 5 seconds, paused while expanded</p>
         </div>
     </header>
     <a class="settings-back-link" href="{{ url_for('index') }}#tools">
@@ -20,18 +19,22 @@
     </a>
     <section aria-label="Received commands">
         {% for command in commands %}
-        <article class="account-panel receiver-entry">
-            <div class="receiver-entry-heading">
-                <h2>{% if command.group %}All configured outlets{% else %}{{ outlet_names.get(command.unit, "Unknown outlet") }}{% endif %}</h2>
+        <details class="account-panel receiver-entry">
+            <summary class="receiver-entry-heading">
+                <span class="receiver-entry-copy">
+                    <span class="receiver-entry-name{% if not command.group and command.unit in outlet_names %} outlet-name{% endif %}">{% if command.group %}All configured outlets{% else %}{{ outlet_names.get(command.unit, "Unknown outlet") }}{% endif %}</span>
+                    <time datetime="{{ command.time|replace(' ', 'T') }}">{{ command.time }}</time>
+                </span>
                 <strong class="receiver-action {{ 'on' if command.on else 'off' }}">{{ "ON" if command.on else "OFF" }}</strong>
-            </div>
+                <span class="receiver-chevron" aria-hidden="true">›</span>
+            </summary>
             <dl class="receiver-details">
                 <div><dt>Controller ID</dt><dd>{{ command.transmitter }}</dd></div>
                 <div><dt>Command</dt><dd>{{ "Group" if command.group else "Individual" }}</dd></div>
                 <div><dt>{{ "Raw unit" if command.group else "Unit" }}</dt><dd>{{ command.unit }}</dd></div>
                 <div><dt>Received</dt><dd>{{ command.time }}</dd></div>
             </dl>
-        </article>
+        </details>
         {% else %}
         <p class="empty">No received commands yet.</p>
         {% endfor %}
@@ -39,5 +42,6 @@
 </main>
 <script src="{{ url_for('static', filename='i18n.js') }}"></script>
 <script src="{{ url_for('static', filename='theme.js') }}" data-autoload="true"></script>
+<script src="{{ url_for('static', filename='receiver_log.js') }}"></script>
 </body>
 </html>

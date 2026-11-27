@@ -50,7 +50,7 @@ Nexa Controller Pi lets you switch Nexa self-learning outlets from your phone or
 
 Nexa radio is one-way, but the app can listen for commands with a 433 MHz receiver and update the displayed state when a physical remote or another transmitter is used.
 
-Enable **Tools** under Settings → Appearance → Footer views, then open Tools → Receiver to see the latest 50 received commands. You can also visit `/receiver-log` while signed in. The page refreshes every 5 seconds; the log is held in memory and resets when the app restarts.
+Enable **Tools** under Settings → Appearance → Footer views, then open Tools → Receiver to see the latest 50 received commands. You can also visit `/receiver-log` while signed in. Select an entry to expand its details; refresh pauses while an entry is open and otherwise runs every 5 seconds. The log is held in memory and resets when the app restarts.
 Individual commands show the currently configured outlet name for the received unit and the controller's transmitter ID. A group command is applied to all configured outlets; the raw unit is shown for diagnostics.
 
 The development launcher adds example receiver log entries on startup without changing outlet state.

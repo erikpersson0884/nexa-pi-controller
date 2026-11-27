@@ -10,6 +10,8 @@ const scriptPath = path.join(root, 'nexa_pi_controller/static/app.js');
 const script = new vm.Script(fs.readFileSync(scriptPath, 'utf8'), {filename: scriptPath});
 const i18nPath = path.join(root, 'nexa_pi_controller/static/i18n.js');
 const i18nScript = new vm.Script(fs.readFileSync(i18nPath, 'utf8'), {filename: i18nPath});
+const receiverLogPath = path.join(root, 'nexa_pi_controller/static/receiver_log.js');
+const receiverLogScript = new vm.Script(fs.readFileSync(receiverLogPath, 'utf8'), {filename: receiverLogPath});
 const themePath = path.join(root, 'nexa_pi_controller/static/theme.js');
 const themeScript = new vm.Script(fs.readFileSync(themePath, 'utf8'), {filename: themePath});
 const template = fs.readFileSync(path.join(root, 'nexa_pi_controller/templates/index.html'), 'utf8')
@@ -742,6 +744,36 @@ test('tools labels are translated into Swedish', async t => {
   assert.equal(document.querySelector('#tools-receiver-link .settings-link-title').textContent, 'Mottagare');
   assert.equal(document.querySelector('#tools-receiver-link .settings-link-description').textContent,
     'Visa mottagna kommandon');
+});
+
+test('receiver log refresh pauses until all expanded entries are closed', t => {
+  const dom = new JSDOM('<details class="receiver-entry"><summary>First</summary></details>' +
+    '<details class="receiver-entry"><summary>Second</summary></details>');
+  t.after(() => dom.window.close());
+  const entries = dom.window.document.querySelectorAll('details');
+  let tick;
+  let reloads = 0;
+  receiverLogScript.runInNewContext({
+    document: dom.window.document,
+    location: {reload: () => { reloads += 1; }},
+    setInterval: (callback, delay) => {
+      assert.equal(delay, 5000);
+      tick = callback;
+    },
+  });
+  tick();
+  assert.equal(reloads, 1);
+  entries[0].querySelector('summary').click();
+  entries[1].querySelector('summary').click();
+  assert.equal(entries[0].open, true);
+  assert.equal(entries[1].open, true);
+  tick();
+  entries[0].querySelector('summary').click();
+  tick();
+  assert.equal(reloads, 1);
+  entries[1].querySelector('summary').click();
+  tick();
+  assert.equal(reloads, 2);
 });
 
 test('All timers page lists timers sorted with tags and adds with no preselection', async t => {
