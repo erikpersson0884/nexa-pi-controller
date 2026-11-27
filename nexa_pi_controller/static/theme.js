@@ -6,13 +6,16 @@
     forest: {background: '#142119', cards: '#1f3025', text: '#edf5ee', accent: '#16803d'},
     sage: {
       background: '#fbf8e8', cards: '#fffdee', text: '#2d3829', accent: '#4a6034',
-      muted: '#66715f', btn: '#eeeedb', line: '#899572',
+      muted: '#4f5c48', btn: '#eeeedb', line: '#6a7659',
+      surfaceBorder: '#6a7659', warning: '#805000', warningBackground: '#f4e3bf',
+      inactiveOpacity: '1', menuOpacity: '1',
       shadow: '0 12px 30px rgba(45, 56, 41, .12)',
       backgroundImage: 'linear-gradient(180deg, #c5d4c5 0%, #e8e8cb 18%, #fbf8e8 31%, #fbf8e8 100%)',
     },
   };
   const styleProperties = ['--bg', '--card', '--text', '--muted', '--on', '--primary',
-    '--btn', '--line', '--shadow', '--accent-contrast'];
+    '--btn', '--line', '--shadow', '--accent-contrast', '--surface-border',
+    '--warning', '--warning-bg', '--inactive-opacity', '--menu-opacity'];
 
   function colorToHex(value, fallback = '#121417') {
     if (typeof value !== 'string') return fallback;
@@ -100,6 +103,16 @@
     root.style.setProperty('--btn', palette.btn || 'color-mix(in srgb, var(--card) 88%, var(--text))');
     root.style.setProperty('--line', palette.line || 'color-mix(in srgb, var(--card) 78%, var(--text))');
     root.style.setProperty('--muted', palette.muted || 'color-mix(in srgb, var(--text) 62%, var(--bg))');
+    if (palette.surfaceBorder) root.style.setProperty('--surface-border', palette.surfaceBorder);
+    else root.style.removeProperty('--surface-border');
+    if (palette.warning) root.style.setProperty('--warning', palette.warning);
+    else root.style.removeProperty('--warning');
+    if (palette.warningBackground) root.style.setProperty('--warning-bg', palette.warningBackground);
+    else root.style.removeProperty('--warning-bg');
+    if (palette.inactiveOpacity) root.style.setProperty('--inactive-opacity', palette.inactiveOpacity);
+    else root.style.removeProperty('--inactive-opacity');
+    if (palette.menuOpacity) root.style.setProperty('--menu-opacity', palette.menuOpacity);
+    else root.style.removeProperty('--menu-opacity');
     if (palette.shadow) root.style.setProperty('--shadow', palette.shadow);
     else root.style.removeProperty('--shadow');
     if (document.body) {

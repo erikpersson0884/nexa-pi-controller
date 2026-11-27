@@ -42,7 +42,7 @@ button { min-height:44px; border:0; border-radius:10px; padding:10px 14px;
          background:var(--btn); color:var(--text); cursor:pointer; }
 button:disabled { opacity:.55; cursor:wait; }
 button.primary { background:var(--primary); color:var(--accent-contrast, #fff); }
-button.secondary { background:var(--btn); }
+button.secondary { background:var(--btn); box-shadow:inset 0 0 0 1px var(--surface-border, transparent); }
 button.danger { color:#fff; background:var(--danger); }
 .topbar { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; }
 h1 { margin:0; font-size:1.45rem; }
@@ -66,7 +66,7 @@ h2 { margin:0 0 16px; font-size:1.2rem; }
 .switch[aria-checked="true"]::before { transform:translateX(22px); }
 .menu-button { position:absolute; top:8px; right:8px; min-width:32px; min-height:32px;
                padding:0; background:transparent; color:var(--muted); font-size:1.2rem;
-               opacity:.65; }
+               opacity:var(--menu-opacity, .65); }
 .menu-button:hover, .menu-button:focus-visible { opacity:1; }
 .timer-link { display:flex; align-items:center; justify-content:space-between; width:100%;
               margin-top:14px; padding:12px 0 0; border:0; border-top:1px solid var(--line);
@@ -267,8 +267,8 @@ input:focus, select:focus { outline:2px solid color-mix(in srgb, var(--primary) 
                      border-top:1px solid var(--line); color:var(--muted);
                      font-size:.85rem; text-decoration:none; }
 .user-account-link:hover, .user-account-link:focus-visible { color:var(--text); }
-.user-password-required { padding:3px 8px; border-radius:999px; background:rgba(245,158,11,.14);
-                          color:#fbbf24; font-size:.7rem; white-space:nowrap; }
+.user-password-required { padding:3px 8px; border-radius:999px; background:var(--warning-bg, rgba(245,158,11,.14));
+                          color:var(--warning, #fbbf24); font-size:.7rem; white-space:nowrap; }
 .user-card-menu { position:relative; flex:none; }
 .user-menu-toggle { display:inline-flex; align-items:center; justify-content:center;
                     width:32px; height:32px; min-width:32px; min-height:32px;
@@ -345,18 +345,20 @@ body { padding-bottom:calc(84px + env(safe-area-inset-bottom)); }
 .tile-wrap { position:relative; min-width:0; }
 .tile { display:flex; flex-direction:column; justify-content:space-between; width:100%; height:132px;
         padding:14px; border-radius:18px; text-align:left; background:var(--card); color:var(--text);
+        box-shadow:inset 0 0 0 1px var(--surface-border, transparent);
         -webkit-touch-callout:none; user-select:none; -webkit-user-select:none;
         transition:background .15s; }
 .tile-top { display:flex; align-items:center; justify-content:space-between; gap:8px; }
 .tile-icon { display:inline-flex; align-items:center; justify-content:center; width:36px; height:36px;
-             border-radius:50%; background:var(--btn); color:var(--muted); }
+             border-radius:50%; background:var(--btn); color:var(--muted);
+             box-shadow:inset 0 0 0 1px var(--surface-border, transparent); }
 .tile-next { display:inline-flex; align-items:center; gap:4px; font-size:.8rem; font-weight:600;
              color:var(--muted); font-variant-numeric:tabular-nums; }
 .tile-bottom { min-width:0; padding-right:34px; }
 .tile-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:16px; font-weight:600; }
 .tile-status { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; color:var(--muted); }
-.tile.on { background:var(--primary); color:var(--accent-contrast, #fff); }
-.tile.on .tile-icon { background:rgba(255,255,255,.2); color:var(--accent-contrast, #fff); }
+.tile.on { background:var(--primary); color:var(--accent-contrast, #fff); box-shadow:none; }
+.tile.on .tile-icon { background:rgba(255,255,255,.2); color:var(--accent-contrast, #fff); box-shadow:none; }
 .tile.on .tile-next, .tile.on .tile-status { color:var(--accent-contrast, #fff); }
 .tile-menu { top:auto; right:2px; bottom:2px; width:44px; height:44px; min-width:44px; min-height:44px;
              color:var(--muted); }
@@ -378,7 +380,7 @@ body { padding-bottom:calc(84px + env(safe-area-inset-bottom)); }
 .timer-time { font-size:28px; font-weight:700; line-height:1.15; font-variant-numeric:tabular-nums; }
 .timer-time.countdown-text { font-size:1.1rem; font-weight:650; }
 .timer-label { font-size:.7rem; font-weight:700; letter-spacing:.08em; color:var(--muted); }
-.timer-row.is-off { opacity:.55; }
+.timer-row.is-off { opacity:var(--inactive-opacity, .55); }
 .tags { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
 .tag { max-width:100%; padding:3px 9px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
        border-radius:10px; background:var(--btn); color:var(--muted); font-size:.75rem; font-weight:600; }
@@ -388,18 +390,15 @@ body { padding-bottom:calc(84px + env(safe-area-inset-bottom)); }
 .selected-count { color:var(--on); font-size:.9rem; font-weight:600; }
 .outlet-chips { display:flex; flex-wrap:wrap; gap:8px; }
 .outlet-chip { display:inline-flex; align-items:center; gap:6px; height:44px; padding:0 16px;
-               border-radius:22px; background:var(--btn); color:#c5ccd3; }
+               border-radius:22px; background:var(--btn); color:var(--text);
+               box-shadow:inset 0 0 0 1px var(--surface-border, transparent); }
 .outlet-chip[aria-pressed="true"] { background:var(--primary); color:var(--accent-contrast, #fff); }
 .outlet-chip .chip-check { display:inline-flex; }
 .outlet-chip .chip-check[hidden] { display:none; }
-.hint { margin:8px 0 0; color:#f59e0b; font-size:.85rem; }
+.hint { margin:8px 0 0; color:var(--warning, #f59e0b); font-size:.85rem; }
 .hint[hidden] { display:none; }
 .text-danger { display:block; margin:10px auto 0; background:transparent; color:var(--danger); font-weight:600; }
 .text-danger[hidden] { display:none; }
-@media (prefers-color-scheme: light) {
-  .outlet-chip { color:#374151; }
-  .tile-menu { color:var(--muted); }
-}
 @media (prefers-reduced-motion: reduce) {
   .tile, .switch::before { transition:none; }
 }

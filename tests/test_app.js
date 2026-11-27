@@ -567,7 +567,6 @@ test('appearance settings apply and save preset and custom palettes', async t =>
   theme.value = 'sage';
   theme.dispatchEvent(new document.defaultView.Event('change', {bubbles: true}));
   assert.equal(document.documentElement.style.getPropertyValue('--bg'), '#fbf8e8');
-  assert.equal(document.documentElement.style.getPropertyValue('--line'), '#899572');
   assert.match(document.body.style.backgroundImage, /linear-gradient/);
 
   theme.value = 'ocean';
@@ -614,6 +613,54 @@ test('appearance settings apply and save preset and custom palettes', async t =>
   assert.equal(document.body.style.backgroundImage, '');
   document.getElementById('appearance-settings-back').click();
   assert.equal(document.getElementById('settings-page').hidden, false);
+});
+
+test('sage controls and surfaces meet contrast requirements', async t => {
+  const {window, document} = await setup(t, {appearance: {theme: 'sage'}});
+  const stylesheet = document.createElement('style');
+  stylesheet.textContent = fs.readFileSync(path.join(root, 'nexa_pi_controller/static/app.css'), 'utf8');
+  document.head.append(stylesheet);
+  const rootStyle = document.documentElement.style;
+  const resolve = value => {
+    const match = value.match(/^var\((--[\w-]+)(?:,\s*[^)]+)?\)$/);
+    return match ? rootStyle.getPropertyValue(match[1]).trim() : value;
+  };
+  const contrast = (foreground, background) => {
+    const luminance = color => {
+      const channels = color.match(/^#([0-9a-f]{6})$/i)[1].match(/../g)
+        .map(channel => parseInt(channel, 16) / 255)
+        .map(channel => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4);
+      return channels.reduce((sum, channel, index) => sum + channel * [0.2126, 0.7152, 0.0722][index], 0);
+    };
+    const values = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
+    return (values[0] + 0.05) / (values[1] + 0.05);
+  };
+  for (const pressed of ['false', 'true']) {
+    const chip = document.createElement('button');
+    chip.className = 'outlet-chip';
+    chip.setAttribute('aria-pressed', pressed);
+    document.body.append(chip);
+    const style = window.getComputedStyle(chip);
+    assert.ok(contrast(resolve(style.color), resolve(style.background)) >= 4.5,
+      `chip with aria-pressed=${pressed} must have readable text`);
+  }
+  for (const surface of ['--bg', '--card', '--btn']) {
+    assert.ok(contrast(rootStyle.getPropertyValue('--muted'), rootStyle.getPropertyValue(surface)) >= 4.5,
+      `muted text must be readable on ${surface}`);
+    assert.ok(contrast(rootStyle.getPropertyValue('--surface-border'), rootStyle.getPropertyValue(surface)) >= 3,
+      `control boundaries must be visible on ${surface}`);
+  }
+  assert.ok(contrast(rootStyle.getPropertyValue('--warning'), rootStyle.getPropertyValue('--warning-bg')) >= 4.5);
+  const tile = document.createElement('button');
+  tile.className = 'tile';
+  document.body.append(tile);
+  assert.match(window.getComputedStyle(tile).boxShadow, /--surface-border/);
+
+  window.NexaAppearance.apply({theme: 'system'});
+  assert.equal(rootStyle.getPropertyValue('--surface-border'), '');
+  assert.equal(rootStyle.getPropertyValue('--warning'), '');
+  assert.equal(rootStyle.getPropertyValue('--inactive-opacity'), '');
+  assert.equal(rootStyle.getPropertyValue('--menu-opacity'), '');
 });
 
 test('shared theme loader applies the saved theme without the dashboard script', async t => {
