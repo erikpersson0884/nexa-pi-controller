@@ -238,42 +238,42 @@ input:focus, select:focus { outline:2px solid color-mix(in srgb, var(--primary) 
 .account-create-actions { display:flex; align-items:center; justify-content:flex-end;
                           gap:8px; margin-top:20px; }
 .account-create-actions form { margin:0; }
-.account-panel { margin:0 0 12px; padding:16px; border:1px solid rgba(255,255,255,.08);
-                 border-radius:16px; background:#171a1f; color:#f1f3f5; }
+.account-panel { margin:0 0 12px; padding:16px; border:1px solid var(--line);
+                 border-radius:16px; background:var(--card); color:var(--text); }
 .account-panel h2 { margin-bottom:6px; }
 .user-panel h3 { margin:0; font-size:16px; font-weight:600; }
 .user-card-top { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
 .user-current-identity { display:flex; align-items:center; flex-wrap:wrap; gap:8px; min-width:0; }
-.user-you { padding:3px 8px; border-radius:999px; background:rgba(255,255,255,.06);
-            color:#9ca3af; font-size:.75rem; }
+.user-you { padding:3px 8px; border-radius:999px; background:var(--btn);
+            color:var(--muted); font-size:.75rem; }
 .user-role-badge { flex:none; padding:5px 10px; border-radius:999px;
-                   background:rgba(255,255,255,.06); color:#9ca3af; font-size:.8rem; }
+                   background:var(--btn); color:var(--muted); font-size:.8rem; }
 .user-card-information { min-width:0; }
 .user-status-line { display:flex; align-items:center; flex-wrap:wrap; gap:6px;
-                    margin-top:7px; color:#c2c7ce; font-size:.8rem; }
+                    margin-top:7px; color:var(--muted); font-size:.8rem; }
 .user-status-dot { width:8px; height:8px; flex:none; border-radius:50%; background:#9ca3af; }
 .user-status-dot.active { background:#22c55e; box-shadow:0 0 8px rgba(34,197,94,.35); }
 .user-status-dot.inactive { background:#6b7280; }
 .user-account-link { display:flex; align-items:center; min-height:44px; margin-top:10px;
-                     border-top:1px solid rgba(255,255,255,.06); color:#c2c7ce;
+                     border-top:1px solid var(--line); color:var(--muted);
                      font-size:.85rem; text-decoration:none; }
-.user-account-link:hover, .user-account-link:focus-visible { color:#f1f3f5; }
+.user-account-link:hover, .user-account-link:focus-visible { color:var(--text); }
 .user-password-required { padding:3px 8px; border-radius:999px; background:rgba(245,158,11,.14);
                           color:#fbbf24; font-size:.7rem; white-space:nowrap; }
 .user-card-menu { position:relative; flex:none; }
 .user-menu-toggle { display:inline-flex; align-items:center; justify-content:center;
                     width:32px; height:32px; min-width:32px; min-height:32px;
-                    padding:0; border-radius:8px; background:rgba(255,255,255,.06);
-                    color:#9ca3af; font-size:1.2rem; }
+                    padding:0; border-radius:8px; background:var(--btn);
+                    color:var(--muted); font-size:1.2rem; }
 .user-overflow-menu { position:absolute; z-index:5; top:calc(100% + 6px); right:0;
                       display:flex; min-width:190px; flex-direction:column; gap:2px;
-                      padding:6px; border:1px solid rgba(255,255,255,.08);
-                      border-radius:10px; background:#1d2126; box-shadow:var(--shadow); }
+                      padding:6px; border:1px solid var(--line);
+                      border-radius:10px; background:var(--card); box-shadow:var(--shadow); }
 .user-overflow-menu[hidden] { display:none; }
 .user-overflow-menu button { min-height:40px; padding:8px 10px; text-align:left;
-                             background:transparent; color:#f1f3f5; }
+                             background:transparent; color:var(--text); }
 .user-overflow-menu button:hover, .user-overflow-menu button:focus-visible {
-  background:rgba(255,255,255,.06);
+  background:var(--btn);
 }
 .user-overflow-menu button.danger { color:#ef4444; }
 .user-role-form { margin-top:14px; }

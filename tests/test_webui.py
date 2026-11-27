@@ -212,6 +212,7 @@ class WebUiTestCase(unittest.TestCase):
         html = response.get_data(as_text=True)
         self.assertIn("<h1>Set your password</h1>", html)
         self.assertIn('form="cancel-form">Cancel and sign out</button>', html)
+        self.assertIn('src="/static/theme.js" data-autoload="true"', html)
 
         cancelled = self.client.post("/logout")
         self.assertEqual(cancelled.status_code, 302)
@@ -219,6 +220,16 @@ class WebUiTestCase(unittest.TestCase):
         self.assertEqual(page.status_code, 302)
         self.assertTrue(page.location.startswith("/login?"))
         self.assertNotIn("password", page.location)
+
+    def test_account_pages_load_saved_theme(self):
+        for path in ("/account", "/account/password", "/account/username"):
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                self.assertEqual(response.status_code, 200)
+                self.assertIn(
+                    'src="/static/theme.js" data-autoload="true"',
+                    response.get_data(as_text=True),
+                )
 
     def test_admin_can_create_users_with_temporary_passwords(self):
         response = self.client.post("/admin/users", data={
@@ -404,6 +415,7 @@ class WebUiTestCase(unittest.TestCase):
         self.assertIn('id="open-create-account"', html)
         self.assertIn('<dialog id="create-account-dialog"', html)
         self.assertIn('src="/static/users.js"', html)
+        self.assertIn('src="/static/theme.js"', html)
 
         with self.client.get("/static/users.js") as script:
             self.assertEqual(script.status_code, 200)
@@ -572,6 +584,10 @@ class WebUiTestCase(unittest.TestCase):
         with self.client.get("/static/app.css") as css:
             self.assertEqual(css.status_code, 200)
             self.assertIn(b"--bg:", css.data)
+            self.assertRegex(
+                css.get_data(as_text=True),
+                r"\.account-panel \{[^}]*background:var\(--card\); color:var\(--text\);",
+            )
         with self.client.get("/static/app.js") as js:
             self.assertEqual(js.status_code, 200)
             self.assertIn(b"function pairOutlet(event)", js.data)

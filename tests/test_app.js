@@ -10,6 +10,8 @@ const scriptPath = path.join(root, 'nexa_pi_controller/static/app.js');
 const script = new vm.Script(fs.readFileSync(scriptPath, 'utf8'), {filename: scriptPath});
 const i18nPath = path.join(root, 'nexa_pi_controller/static/i18n.js');
 const i18nScript = new vm.Script(fs.readFileSync(i18nPath, 'utf8'), {filename: i18nPath});
+const themePath = path.join(root, 'nexa_pi_controller/static/theme.js');
+const themeScript = new vm.Script(fs.readFileSync(themePath, 'utf8'), {filename: themePath});
 const template = fs.readFileSync(path.join(root, 'nexa_pi_controller/templates/index.html'), 'utf8')
   .replace('{{ csrf_token() }}', 'test-csrf');
 
@@ -65,6 +67,7 @@ async function setup(t, {
   };
   window.confirm = () => true;
   i18nScript.runInContext(dom.getInternalVMContext());
+  themeScript.runInContext(dom.getInternalVMContext());
   script.runInContext(dom.getInternalVMContext());
   await settle();
   return {window, document: window.document, requests};
@@ -609,6 +612,47 @@ test('appearance settings apply and save preset and custom palettes', async t =>
   assert.equal(document.body.style.backgroundImage, '');
   document.getElementById('appearance-settings-back').click();
   assert.equal(document.getElementById('settings-page').hidden, false);
+});
+
+test('shared theme loader applies the saved theme without the dashboard script', async t => {
+  const dom = new JSDOM('<!doctype html><html><body></body></html>', {
+    url: 'http://localhost/admin/users',
+    runScripts: 'outside-only',
+    beforeParse(window) {
+      window.localStorage.setItem('nexa-appearance', JSON.stringify({
+        theme: 'ocean',
+        custom: {},
+        savedThemes: [],
+      }));
+    },
+  });
+  t.after(() => dom.window.close());
+  themeScript.runInContext(dom.getInternalVMContext());
+  dom.window.NexaAppearance.applyStored();
+
+  assert.equal(dom.window.document.documentElement.style.getPropertyValue('--bg'), '#10212d');
+  assert.equal(dom.window.document.documentElement.style.getPropertyValue('--primary'), '#0284c7');
+});
+
+test('account pages automatically apply the saved custom palette', t => {
+  for (const page of ['account.html', 'change_password.html', 'change_username.html']) {
+    const markup = fs.readFileSync(path.join(root, 'nexa_pi_controller/templates', page), 'utf8');
+    const dom = new JSDOM(markup, {url: 'http://localhost/account', runScripts: 'outside-only'});
+    t.after(() => dom.window.close());
+    const {window} = dom;
+    window.localStorage.setItem('nexa-appearance', JSON.stringify({
+      theme: 'custom',
+      custom: {background: '#123456', cards: '#abcdef', text: '#112233', accent: '#aabbcc'},
+    }));
+    const scriptElement = window.document.querySelector('script[data-autoload="true"]');
+    assert.ok(scriptElement, `${page} should load the saved theme`);
+    Object.defineProperty(window.document, 'currentScript', {value: scriptElement});
+    themeScript.runInContext(dom.getInternalVMContext());
+    const style = window.document.documentElement.style;
+    assert.equal(style.getPropertyValue('--bg'), '#123456');
+    assert.equal(style.getPropertyValue('--card'), '#abcdef');
+    assert.equal(style.getPropertyValue('--text'), '#112233');
+  }
 });
 
 test('appearance settings control and persist visible footer views', async t => {
